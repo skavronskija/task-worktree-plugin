@@ -1,0 +1,32 @@
+<idea-plugin>
+  <version>0.0.1</version>
+  <id>ie.distilled.task-worktree-plugin</id>
+
+  <name>Task Worktree</name>
+
+  <vendor url="https://www.yourcompany.com">YourCompany</vendor>
+
+  <description><![CDATA[
+    Create git worktrees from IntelliJ tasks. Works with any configured task server
+    (Target Process, Jira, GitHub, YouTrack, etc.) via the bundled Tasks plugin.
+  ]]></description>
+
+  <depends>com.intellij.modules.platform</depends>
+  <depends>com.intellij.tasks</depends>
+  <depends>Git4Idea</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <notificationGroup id="Task Worktree" displayType="BALLOON"/>
+  </extensions>
+
+  <actions>
+    <action id="TaskWorktree.OpenTaskInWorktree"
+            class="ie.distilled.worktree.action.OpenTaskInWorktreeAction"
+            text="Open Task in Worktree..."
+            description="Pick a task and create a git worktree for it">
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
+      <add-to-group group-id="Vcs.MainMenu" anchor="last"/>
+      <keyboard-shortcut keymap="$default" first-keystroke="alt shift P"/>
+    </action>
+  </actions>
+</idea-plugin>

@@ -1,0 +1,31 @@
+# Build output
+build/
+out/
+.gradle/
+.intellijPlatform/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java
+*.class
+hs_err_pid*
+replay_pid*
+
+# Logs
+*.log
+
+# Package artifacts
+*.war
+*.nar
+*.ear
+
+# Local agent state (CLAUDE.md is intentionally committed)
+.claude/settings.local.json
