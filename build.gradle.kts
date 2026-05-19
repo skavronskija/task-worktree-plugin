@@ -35,7 +35,21 @@ intellijPlatform {
             sinceBuild = "251"
         }
         changeNotes = """
-            Initial version: create git worktrees from IntelliJ tasks (works with any configured task server).
+            <h3>0.0.1</h3>
+            <ul>
+              <li>Initial release.</li>
+              <li>Create a worktree from any IntelliJ task, or define a custom worktree
+                  on a new or existing local branch.</li>
+              <li>Searchable picker with type-to-filter for both items and branches.</li>
+              <li>Inline open / remove of existing worktrees; the main repo worktree is
+                  protected from deletion.</li>
+              <li>Optionally copies <code>.idea/</code> from the source repo into each
+                  new worktree.</li>
+              <li>Automatically removes the worktree's path from Recent Projects on
+                  removal; bulk "Clean Up Obsolete Recent Projects" tool in settings.</li>
+              <li>Global settings under <strong>Settings | Tools | Task Worktree</strong>:
+                  base worktrees directory and the <code>.idea/</code> copy toggle.</li>
+            </ul>
         """.trimIndent()
     }
 }

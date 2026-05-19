@@ -7,8 +7,29 @@
   <vendor url="https://github.com/skavronskija">Anton Skavronskij</vendor>
 
   <description><![CDATA[
-    Create git worktrees from IntelliJ tasks. Works with any configured task server
-    (Target Process, Jira, GitHub, YouTrack, etc.) via the bundled Tasks plugin.
+    <p>Create git worktrees from IntelliJ tasks, or define custom ones — branch a folder
+    next to your repo and open it as a new IntelliJ project in a single step.</p>
+
+    <h3>Features</h3>
+    <ul>
+      <li>Pick from open tasks across any configured task server (TargetProcess, Jira,
+          YouTrack, GitHub, …) and spawn a worktree for the matching branch, or create
+          a custom worktree on any new or existing local branch.</li>
+      <li>Searchable, two-section picker (existing worktrees + tasks) with type-to-filter
+          for both the item list and the branch selector.</li>
+      <li>Open or remove existing worktrees inline. The main repo worktree is protected
+          from deletion.</li>
+      <li>Optionally copies the source repo's <code>.idea/</code> into each new worktree
+          so the IDE opens with project settings intact.</li>
+      <li>Automatically drops the removed worktree's path from Recent Projects; one-click
+          bulk cleanup of stranded greyed-out entries.</li>
+    </ul>
+
+    <p>Settings under <strong>Settings | Tools | Task Worktree</strong>: base worktrees
+    directory and the <code>.idea/</code> copy toggle (both applied globally across
+    projects).</p>
+
+    <p>Default shortcut: <strong>Alt+Shift+P</strong>.</p>
   ]]></description>
 
   <depends>com.intellij.modules.platform</depends>
