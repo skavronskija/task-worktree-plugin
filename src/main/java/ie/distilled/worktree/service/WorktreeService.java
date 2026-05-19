@@ -6,6 +6,7 @@ import com.intellij.execution.process.CapturingProcessHandler;
 import com.intellij.execution.process.ProcessOutput;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import ie.distilled.worktree.settings.WorktreeSettings;
 import git4idea.GitLocalBranch;
 import git4idea.config.GitExecutableManager;
 import git4idea.repo.GitRepository;
@@ -154,7 +155,9 @@ public final class WorktreeService {
 
     Result result = new Result(output.getExitCode() == 0, output.getStdout(), output.getStderr(), output.getExitCode());
     if (result.success()) {
-      copyIdeaConfig(Path.of(repo.getRoot().getPath()), targetPath);
+      if (WorktreeSettings.getInstance().isCopyProjectConfig()) {
+        copyIdeaConfig(Path.of(repo.getRoot().getPath()), targetPath);
+      }
       repo.update();
     }
     return result;

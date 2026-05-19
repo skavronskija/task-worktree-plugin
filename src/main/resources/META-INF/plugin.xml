@@ -17,6 +17,11 @@
 
   <extensions defaultExtensionNs="com.intellij">
     <notificationGroup id="Task Worktree" displayType="BALLOON"/>
+    <applicationConfigurable
+        parentId="tools"
+        instance="ie.distilled.worktree.settings.WorktreeSettingsConfigurable"
+        id="ie.distilled.worktree.settings"
+        displayName="Task Worktree"/>
   </extensions>
 
   <actions>

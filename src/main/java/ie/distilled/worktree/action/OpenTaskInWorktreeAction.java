@@ -24,6 +24,7 @@ import com.intellij.tasks.TaskManager;
 import com.intellij.tasks.TaskRepository;
 import ie.distilled.worktree.service.WorktreeNaming;
 import ie.distilled.worktree.service.WorktreeService;
+import ie.distilled.worktree.settings.WorktreeSettings;
 import git4idea.repo.GitRepository;
 import git4idea.repo.GitRepositoryManager;
 import java.nio.file.Files;
@@ -334,7 +335,7 @@ public class OpenTaskInWorktreeAction extends AnAction {
       notifyError(project, "Repository root has no parent directory: " + repoPath);
       return;
     }
-    Path worktreesParent = parent.resolve("worktrees");
+    Path worktreesParent = resolveWorktreesParent(parent);
 
     List<String> localBranches = gitRepo.getBranches().getLocalBranches().stream()
                                         .map(git4idea.GitLocalBranch::getName)
@@ -381,6 +382,16 @@ public class OpenTaskInWorktreeAction extends AnAction {
             );
           }
         });
+  }
+
+  @NotNull
+  private static Path resolveWorktreesParent(@NotNull Path repoParent) {
+    String configured = WorktreeSettings.getInstance().getBaseDirectory().trim();
+    if (configured.isEmpty()) {
+      return repoParent.resolve("worktrees");
+    }
+    Path configuredPath = Paths.get(configured);
+    return configuredPath.isAbsolute() ? configuredPath : repoParent.resolve(configuredPath);
   }
 
   @Nullable
