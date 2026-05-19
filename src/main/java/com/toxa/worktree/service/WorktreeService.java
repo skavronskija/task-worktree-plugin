@@ -4,6 +4,7 @@ import com.intellij.execution.ExecutionException;
 import com.intellij.execution.configurations.GeneralCommandLine;
 import com.intellij.execution.process.CapturingProcessHandler;
 import com.intellij.execution.process.ProcessOutput;
+import com.intellij.ide.RecentProjectsManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.toxa.worktree.settings.WorktreeSettings;
@@ -115,6 +116,7 @@ public final class WorktreeService {
     Result result = new Result(output.getExitCode() == 0, output.getStdout(), output.getStderr(), output.getExitCode());
     if (result.success()) {
       repo.update();
+      RecentProjectsManager.getInstance().removePath(worktreePath.toString());
     }
     return result;
   }
