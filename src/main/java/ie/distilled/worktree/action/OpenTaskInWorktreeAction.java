@@ -129,6 +129,11 @@ public class OpenTaskInWorktreeAction extends AnAction {
 
     BaseListPopupStep<PickerEntry> step = new BaseListPopupStep<>("Select Task or Worktree", entries) {
       @Override
+      public boolean isSpeedSearchEnabled() {
+        return true;
+      }
+
+      @Override
       public boolean hasSubstep(PickerEntry value) {
         return value instanceof WorktreeEntry;
       }
@@ -331,8 +336,13 @@ public class OpenTaskInWorktreeAction extends AnAction {
     }
     Path worktreesParent = parent.resolve("worktrees");
 
+    List<String> localBranches = gitRepo.getBranches().getLocalBranches().stream()
+                                        .map(git4idea.GitLocalBranch::getName)
+                                        .sorted()
+                                        .toList();
+
     CreateWorktreeDialog dialog = new CreateWorktreeDialog(
-        project, windowTitle, defaultBranch, defaultFolder, worktreesParent);
+        project, windowTitle, defaultBranch, defaultFolder, worktreesParent, localBranches);
     if (!dialog.showAndGet()) {
       return;
     }
