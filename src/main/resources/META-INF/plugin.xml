@@ -1,6 +1,6 @@
 <idea-plugin>
   <version>0.0.1</version>
-  <id>ie.distilled.task-worktree-plugin</id>
+  <id>com.toxa.task-worktree-plugin</id>
 
   <name>Task Worktree</name>
 
@@ -19,14 +19,14 @@
     <notificationGroup id="Task Worktree" displayType="BALLOON"/>
     <applicationConfigurable
         parentId="tools"
-        instance="ie.distilled.worktree.settings.WorktreeSettingsConfigurable"
-        id="ie.distilled.worktree.settings"
+        instance="com.toxa.worktree.settings.WorktreeSettingsConfigurable"
+        id="com.toxa.worktree.settings"
         displayName="Task Worktree"/>
   </extensions>
 
   <actions>
     <action id="TaskWorktree.OpenTaskInWorktree"
-            class="ie.distilled.worktree.action.OpenTaskInWorktreeAction"
+            class="com.toxa.worktree.action.OpenTaskInWorktreeAction"
             text="Open Task in Worktree..."
             description="Pick a task and create a git worktree for it">
       <add-to-group group-id="ToolsMenu" anchor="last"/>

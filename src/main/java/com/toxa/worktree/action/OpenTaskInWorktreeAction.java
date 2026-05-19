@@ -1,4 +1,4 @@
-package ie.distilled.worktree.action;
+package com.toxa.worktree.action;
 
 import com.intellij.icons.AllIcons;
 import com.intellij.ide.impl.ProjectUtil;
@@ -22,9 +22,9 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.tasks.Task;
 import com.intellij.tasks.TaskManager;
 import com.intellij.tasks.TaskRepository;
-import ie.distilled.worktree.service.WorktreeNaming;
-import ie.distilled.worktree.service.WorktreeService;
-import ie.distilled.worktree.settings.WorktreeSettings;
+import com.toxa.worktree.service.WorktreeNaming;
+import com.toxa.worktree.service.WorktreeService;
+import com.toxa.worktree.settings.WorktreeSettings;
 import git4idea.repo.GitRepository;
 import git4idea.repo.GitRepositoryManager;
 import java.nio.file.Files;

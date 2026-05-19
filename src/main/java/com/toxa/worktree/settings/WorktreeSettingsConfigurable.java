@@ -1,4 +1,4 @@
-package ie.distilled.worktree.settings;
+package com.toxa.worktree.settings;
 
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.options.Configurable;

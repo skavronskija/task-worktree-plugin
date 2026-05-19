@@ -7,7 +7,7 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.7.1"
 }
 
-group = "ie.distilled"
+group = "com.toxa"
 version = (findProperty("buildVersion") as String?)
     ?: LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmm"))
 

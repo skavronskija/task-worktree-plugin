@@ -1,4 +1,4 @@
-package ie.distilled.worktree.service;
+package com.toxa.worktree.service;
 
 import com.intellij.execution.ExecutionException;
 import com.intellij.execution.configurations.GeneralCommandLine;
@@ -6,7 +6,7 @@ import com.intellij.execution.process.CapturingProcessHandler;
 import com.intellij.execution.process.ProcessOutput;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
-import ie.distilled.worktree.settings.WorktreeSettings;
+import com.toxa.worktree.settings.WorktreeSettings;
 import git4idea.GitLocalBranch;
 import git4idea.config.GitExecutableManager;
 import git4idea.repo.GitRepository;

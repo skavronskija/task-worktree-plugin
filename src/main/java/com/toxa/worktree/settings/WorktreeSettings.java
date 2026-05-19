@@ -1,4 +1,4 @@
-package ie.distilled.worktree.settings;
+package com.toxa.worktree.settings;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.PersistentStateComponent;

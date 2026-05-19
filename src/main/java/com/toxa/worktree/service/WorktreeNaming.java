@@ -1,4 +1,4 @@
-package ie.distilled.worktree.service;
+package com.toxa.worktree.service;
 
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
