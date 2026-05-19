@@ -8,10 +8,12 @@ import com.intellij.ui.components.JBTextField;
 import com.intellij.util.ui.FormBuilder;
 import com.intellij.util.ui.JBUI;
 import git4idea.validators.GitRefNameValidator;
+import java.awt.Dimension;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.nio.file.Path;
 import javax.swing.JComponent;
+import javax.swing.JPanel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -50,11 +52,14 @@ public class CreateWorktreeDialog extends DialogWrapper {
 
   @Override
   protected JComponent createCenterPanel() {
-    return FormBuilder.createFormBuilder()
-                      .addLabeledComponent("Branch:", branchField)
-                      .addLabeledComponent("Folder:", folderField)
-                      .addLabeledComponent("Path:", pathPreview)
-                      .getPanel();
+    JPanel panel = FormBuilder.createFormBuilder()
+                              .addLabeledComponent("Branch:", branchField)
+                              .addLabeledComponent("Folder:", folderField)
+                              .addLabeledComponent("Path:", pathPreview)
+                              .getPanel();
+    Dimension natural = panel.getPreferredSize();
+    panel.setPreferredSize(new Dimension(natural.width * 3, natural.height));
+    return panel;
   }
 
   @Override
