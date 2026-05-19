@@ -30,6 +30,11 @@ dependencies {
 }
 
 intellijPlatform {
+    pluginVerification {
+        ides {
+            create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2025.1.4.1")
+        }
+    }
     pluginConfiguration {
         ideaVersion {
             sinceBuild = "251"
