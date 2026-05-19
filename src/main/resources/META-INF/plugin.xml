@@ -4,7 +4,7 @@
 
   <name>Task Worktree</name>
 
-  <vendor url="https://www.yourcompany.com">YourCompany</vendor>
+  <vendor url="https://github.com/skavronskija">Anton Skavronskij</vendor>
 
   <description><![CDATA[
     Create git worktrees from IntelliJ tasks. Works with any configured task server

@@ -1,6 +1,3 @@
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "2.1.0"
@@ -8,8 +5,13 @@ plugins {
 }
 
 group = "com.toxa"
-version = (findProperty("buildVersion") as String?)
-    ?: LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmm"))
+
+val pluginXmlVersion: String = file("src/main/resources/META-INF/plugin.xml")
+    .readText()
+    .let { Regex("<version>([^<]+)</version>").find(it)?.groupValues?.get(1) }
+    ?: error("<version> not found in src/main/resources/META-INF/plugin.xml")
+
+version = (findProperty("buildVersion") as String?) ?: pluginXmlVersion
 
 repositories {
     mavenCentral()
