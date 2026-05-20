@@ -33,6 +33,8 @@ public class CreateWorktreeDialog extends DialogWrapper {
   private final JBTextField folderField = new JBTextField();
   private final JBLabel pathPreview = new JBLabel();
   private final Path worktreesParent;
+  private boolean folderFollowsBranch;
+  private boolean settingFolderProgrammatically;
 
   public CreateWorktreeDialog(@NotNull Project project,
                               @NotNull String windowTitle,
@@ -45,12 +47,24 @@ public class CreateWorktreeDialog extends DialogWrapper {
     this.allBranches = List.copyOf(existingBranches);
     setTitle(windowTitle);
 
+    this.folderFollowsBranch = defaultFolder.isEmpty();
     branchField.setText(defaultBranch);
     folderField.setText(defaultFolder);
     folderField.addKeyListener(new KeyAdapter() {
       @Override
       public void keyReleased(KeyEvent e) {
+        if (!settingFolderProgrammatically) {
+          folderFollowsBranch = false;
+        }
         updatePathPreview();
+      }
+    });
+    branchField.addKeyListener(new KeyAdapter() {
+      @Override
+      public void keyReleased(KeyEvent e) {
+        if (newBranchRadio.isSelected()) {
+          syncFolderFromBranch();
+        }
       }
     });
 
@@ -60,6 +74,11 @@ public class CreateWorktreeDialog extends DialogWrapper {
     existingBranchCombo.setModel(existingBranchModel);
     existingBranchCombo.setEditable(true);
     existingBranchCombo.setSelectedItem(null);
+    existingBranchCombo.addActionListener(e -> {
+      if (existingBranchRadio.isSelected()) {
+        syncFolderFromBranch();
+      }
+    });
     JTextField comboEditor = (JTextField) existingBranchCombo.getEditor().getEditorComponent();
     comboEditor.setText("");
     comboEditor.addKeyListener(new KeyAdapter() {
@@ -74,6 +93,9 @@ public class CreateWorktreeDialog extends DialogWrapper {
           return;
         }
         applyBranchFilter();
+        if (existingBranchRadio.isSelected()) {
+          syncFolderFromBranch();
+        }
       }
     });
     if (allBranches.isEmpty()) {
@@ -96,6 +118,25 @@ public class CreateWorktreeDialog extends DialogWrapper {
     boolean useNew = newBranchRadio.isSelected();
     branchField.setEnabled(useNew);
     existingBranchCombo.setEnabled(!useNew && !allBranches.isEmpty());
+    syncFolderFromBranch();
+  }
+
+  private void syncFolderFromBranch() {
+    if (!folderFollowsBranch) {
+      return;
+    }
+    String branch = getBranch();
+    String cleaned = branch.replace('/', '-').replace('\\', '-');
+    if (folderField.getText().equals(cleaned)) {
+      return;
+    }
+    settingFolderProgrammatically = true;
+    try {
+      folderField.setText(cleaned);
+    } finally {
+      settingFolderProgrammatically = false;
+    }
+    updatePathPreview();
   }
 
   private void applyBranchFilter() {
@@ -142,7 +183,7 @@ public class CreateWorktreeDialog extends DialogWrapper {
 
   @Override
   public @Nullable JComponent getPreferredFocusedComponent() {
-    return folderField;
+    return branchField.getText().isEmpty() ? branchField : folderField;
   }
 
   @Override

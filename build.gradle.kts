@@ -35,11 +35,30 @@ intellijPlatform {
             create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2025.1.4.1")
         }
     }
+    publishing {
+        token = providers.environmentVariable("JETBRAINS_MARKETPLACE_TOKEN")
+        channels = listOf("default")
+    }
+
     pluginConfiguration {
         ideaVersion {
             sinceBuild = "251"
         }
         changeNotes = """
+            <h3>0.0.2</h3>
+            <ul>
+              <li>Existing-branch picker now lists remote branches too. Picking a remote
+                  (e.g. <code>origin/feature-x</code>) creates a local tracking branch
+                  from it.</li>
+              <li>Custom worktree dialog auto-fills the folder name from the chosen
+                  branch name (path separators replaced with <code>-</code>); stops
+                  syncing once you edit the folder manually.</li>
+              <li>Custom worktree dialog now opens with focus on the branch input.</li>
+              <li>Internal: replaced deprecated <code>Messages.showChooseDialog</code>
+                  with an inline list popup; plugin verifier now reports no deprecated
+                  API usages.</li>
+            </ul>
+
             <h3>0.0.1</h3>
             <ul>
               <li>Initial release.</li>

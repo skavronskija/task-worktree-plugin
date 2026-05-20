@@ -31,7 +31,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 import javax.swing.Icon;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -76,11 +79,10 @@ public class OpenTaskInWorktreeAction extends AnAction {
       return;
     }
 
-    GitRepository gitRepo = chooseGitRepository(project);
-    if (gitRepo == null) {
-      return;
-    }
+    chooseGitRepository(project, gitRepo -> loadTasksAndShowPicker(project, gitRepo));
+  }
 
+  private void loadTasksAndShowPicker(@NotNull Project project, @NotNull GitRepository gitRepo) {
     ProgressManager.getInstance().run(
         new com.intellij.openapi.progress.Task.Backgroundable(project, "Loading tasks", true) {
           @Override
@@ -341,15 +343,27 @@ public class OpenTaskInWorktreeAction extends AnAction {
                                         .map(git4idea.GitLocalBranch::getName)
                                         .sorted()
                                         .toList();
+    Map<String, git4idea.GitRemoteBranch> remoteByName = new LinkedHashMap<>();
+    gitRepo.getBranches().getRemoteBranches().stream()
+           .sorted((a, b) -> a.getName().compareTo(b.getName()))
+           .forEach(b -> remoteByName.putIfAbsent(b.getName(), b));
+
+    List<String> allBranches = new ArrayList<>(localBranches.size() + remoteByName.size());
+    allBranches.addAll(localBranches);
+    allBranches.addAll(remoteByName.keySet());
 
     CreateWorktreeDialog dialog = new CreateWorktreeDialog(
-        project, windowTitle, defaultBranch, defaultFolder, worktreesParent, localBranches);
+        project, windowTitle, defaultBranch, defaultFolder, worktreesParent, allBranches);
     if (!dialog.showAndGet()) {
       return;
     }
-    String branchName = dialog.getBranch();
+    String dialogBranch = dialog.getBranch();
     String folderName = dialog.getFolder();
     Path worktreePath = worktreesParent.resolve(folderName);
+
+    git4idea.GitRemoteBranch pickedRemote = remoteByName.get(dialogBranch);
+    String branchName = pickedRemote == null ? dialogBranch : pickedRemote.getNameForRemoteOperations();
+    String baseRef = pickedRemote == null ? null : pickedRemote.getName();
 
     if (Files.isDirectory(worktreePath)) {
       ProjectUtil.openOrImport(worktreePath, project, false);
@@ -362,7 +376,7 @@ public class OpenTaskInWorktreeAction extends AnAction {
           public void run(@NotNull ProgressIndicator indicator) {
             WorktreeService.Result result;
             try {
-              result = WorktreeService.createWorktree(project, gitRepo, worktreePath, branchName, null);
+              result = WorktreeService.createWorktree(project, gitRepo, worktreePath, branchName, baseRef);
             } catch (IllegalStateException pre) {
               notifyError(project, pre.getMessage());
               return;
@@ -394,27 +408,33 @@ public class OpenTaskInWorktreeAction extends AnAction {
     return configuredPath.isAbsolute() ? configuredPath : repoParent.resolve(configuredPath);
   }
 
-  @Nullable
-  @SuppressWarnings("deprecation")
-  private GitRepository chooseGitRepository(@NotNull Project project) {
+  private void chooseGitRepository(@NotNull Project project, @NotNull Consumer<GitRepository> onChosen) {
     List<GitRepository> repos = GitRepositoryManager.getInstance(project).getRepositories();
     if (repos.isEmpty()) {
       notifyError(project, "No git repository found in this project.");
-      return null;
+      return;
     }
     if (repos.size() == 1) {
-      return repos.get(0);
+      onChosen.accept(repos.get(0));
+      return;
     }
-    String[] options = repos.stream().map(r -> r.getRoot().getPath()).toArray(String[]::new);
-    int idx = Messages.showChooseDialog(
-        project,
-        "Choose the git repository in which to create the worktree:",
-        "Select Git Repository",
-        null,
-        options,
-        options[0]
-    );
-    return idx < 0 ? null : repos.get(idx);
+    BaseListPopupStep<GitRepository> step = new BaseListPopupStep<>("Select Git Repository", repos) {
+      @Override
+      public boolean isSpeedSearchEnabled() {
+        return true;
+      }
+
+      @Override
+      public @NotNull String getTextFor(GitRepository value) {
+        return value.getRoot().getPath();
+      }
+
+      @Override
+      public PopupStep<?> onChosen(GitRepository value, boolean finalChoice) {
+        return doFinalStep(() -> onChosen.accept(value));
+      }
+    };
+    JBPopupFactory.getInstance().createListPopup(step).showCenteredInCurrentWindow(project);
   }
 
   private void notifyError(@NotNull Project project, @NotNull String message) {
