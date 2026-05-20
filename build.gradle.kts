@@ -45,7 +45,7 @@ intellijPlatform {
             sinceBuild = "251"
         }
         changeNotes = """
-            <h3>0.0.2</h3>
+            <h3>0.0.3</h3>
             <ul>
               <li>Existing-branch picker now lists remote branches too. Picking a remote
                   (e.g. <code>origin/feature-x</code>) creates a local tracking branch
