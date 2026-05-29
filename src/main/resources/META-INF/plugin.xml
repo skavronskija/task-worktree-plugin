@@ -1,5 +1,5 @@
 <idea-plugin>
-  <version>0.0.3</version>
+  <version>0.0.4</version>
   <id>com.toxa.task-worktree-plugin</id>
 
   <name>Task Worktree</name>
