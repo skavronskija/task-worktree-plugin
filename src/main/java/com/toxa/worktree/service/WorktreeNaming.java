@@ -49,12 +49,29 @@ public final class WorktreeNaming {
     return pattern
         .replace("${id}", nullToEmpty(task.getPresentableId()))
         .replace("${number}", nullToEmpty(task.getNumber()))
-        .replace("${summary}", nullToEmpty(task.getSummary()))
+        .replace("${summary}", sanitizeSummary(task.getSummary()))
         .replace("${project}", projectName);
   }
 
   @NotNull
   private static String nullToEmpty(String value) {
     return value == null ? "" : value;
+  }
+
+  /**
+   * Makes a task summary safe to embed in a branch or folder name: spaces become
+   * underscores, every other non-alphanumeric character (except {@code _} and {@code -})
+   * is dropped, and runs of underscores are collapsed.
+   */
+  @NotNull
+  private static String sanitizeSummary(String summary) {
+    if (summary == null || summary.isBlank()) {
+      return "";
+    }
+    String sanitized = summary.trim()
+        .replaceAll("\\s+", "_")
+        .replaceAll("[^a-zA-Z0-9_-]", "")
+        .replaceAll("_{2,}", "_");
+    return sanitized.replaceAll("^_+|_+$", "");
   }
 }
