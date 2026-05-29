@@ -338,8 +338,8 @@ public class OpenTaskInWorktreeAction extends AnAction {
         project,
         gitRepo,
         "Create Worktree for " + task.getPresentableId() + "  " + task.getSummary(),
-        WorktreeNaming.suggestBranchName(project, task),
-        repoName + "-" + task.getPresentableId()
+        WorktreeNaming.suggestBranchName(task, repoName),
+        WorktreeNaming.suggestFolderName(task, repoName)
     );
   }
 

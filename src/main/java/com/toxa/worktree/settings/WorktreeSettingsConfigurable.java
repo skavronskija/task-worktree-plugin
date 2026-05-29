@@ -8,6 +8,7 @@ import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBLabel;
+import com.intellij.ui.components.JBTextField;
 import com.intellij.util.ui.FormBuilder;
 import com.intellij.util.ui.JBUI;
 import java.nio.file.Files;
@@ -23,8 +24,18 @@ public class WorktreeSettingsConfigurable implements Configurable {
 
   private static final int PREVIEW_LIMIT = 20;
 
+  private static final String VARIABLES_HINT =
+      "<html>Pattern variables:<br>"
+      + "&nbsp;&nbsp;${id} - task ID<br>"
+      + "&nbsp;&nbsp;${number} - task number<br>"
+      + "&nbsp;&nbsp;${summary} - task summary<br>"
+      + "&nbsp;&nbsp;${project} - current project/repo name<br>"
+      + "<br>Leave a pattern blank to use the task id.</html>";
+
   private TextFieldWithBrowseButton baseDirField;
   private JBCheckBox copyConfigCheckbox;
+  private JBTextField branchPatternField;
+  private JBTextField worktreePatternField;
   private JPanel panel;
 
   @Override
@@ -47,13 +58,23 @@ public class WorktreeSettingsConfigurable implements Configurable {
     JBLabel hint = new JBLabel("Leave blank to use <repo parent>/worktrees. Relative paths resolve against the repo parent.");
     hint.setForeground(JBUI.CurrentTheme.ContextHelp.FOREGROUND);
 
+    branchPatternField = new JBTextField();
+    worktreePatternField = new JBTextField();
+
+    JBLabel variablesHint = new JBLabel(VARIABLES_HINT);
+    variablesHint.setForeground(JBUI.CurrentTheme.ContextHelp.FOREGROUND);
+
     JButton cleanupButton = new JButton("Clean Up Obsolete Recent Projects");
     cleanupButton.addActionListener(e -> cleanUpObsoleteRecentProjects());
 
     panel = FormBuilder.createFormBuilder()
                        .addLabeledComponent("Base worktrees directory:", baseDirField)
                        .addComponentToRightColumn(hint)
+                       .addLabeledComponent("Branch name pattern:", branchPatternField)
+                       .addLabeledComponent("Worktree folder name pattern:", worktreePatternField)
                        .addComponent(copyConfigCheckbox)
+                       .addSeparator()
+                       .addComponent(variablesHint)
                        .addSeparator()
                        .addComponent(cleanupButton)
                        .addComponentFillVertically(new JPanel(), 0)
@@ -110,7 +131,9 @@ public class WorktreeSettingsConfigurable implements Configurable {
   public boolean isModified() {
     WorktreeSettings s = WorktreeSettings.getInstance();
     return !baseDirField.getText().trim().equals(s.getBaseDirectory())
-           || copyConfigCheckbox.isSelected() != s.isCopyProjectConfig();
+           || copyConfigCheckbox.isSelected() != s.isCopyProjectConfig()
+           || !branchPatternField.getText().trim().equals(s.getBranchNamePattern())
+           || !worktreePatternField.getText().trim().equals(s.getWorktreeNamePattern());
   }
 
   @Override
@@ -118,6 +141,8 @@ public class WorktreeSettingsConfigurable implements Configurable {
     WorktreeSettings s = WorktreeSettings.getInstance();
     s.setBaseDirectory(baseDirField.getText().trim());
     s.setCopyProjectConfig(copyConfigCheckbox.isSelected());
+    s.setBranchNamePattern(branchPatternField.getText().trim());
+    s.setWorktreeNamePattern(worktreePatternField.getText().trim());
   }
 
   @Override
@@ -125,6 +150,8 @@ public class WorktreeSettingsConfigurable implements Configurable {
     WorktreeSettings s = WorktreeSettings.getInstance();
     baseDirField.setText(s.getBaseDirectory());
     copyConfigCheckbox.setSelected(s.isCopyProjectConfig());
+    branchPatternField.setText(s.getBranchNamePattern());
+    worktreePatternField.setText(s.getWorktreeNamePattern());
   }
 
   @Override
@@ -132,5 +159,7 @@ public class WorktreeSettingsConfigurable implements Configurable {
     panel = null;
     baseDirField = null;
     copyConfigCheckbox = null;
+    branchPatternField = null;
+    worktreePatternField = null;
   }
 }
