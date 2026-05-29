@@ -45,6 +45,12 @@ intellijPlatform {
             sinceBuild = "251"
         }
         changeNotes = """
+            <h3>0.0.4</h3>
+            <ul>
+              <li>New branches can be created from a chosen <strong>base</strong> ref — branch a new
+                  worktree off e.g. <code>main</code> without switching to the main worktree first.</li>
+            </ul>
+            
             <h3>0.0.3</h3>
             <ul>
               <li>Existing-branch picker now lists remote branches too. Picking a remote

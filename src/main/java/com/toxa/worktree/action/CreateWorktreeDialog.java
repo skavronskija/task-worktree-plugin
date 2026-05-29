@@ -9,6 +9,8 @@ import com.intellij.ui.components.JBTextField;
 import com.intellij.util.ui.FormBuilder;
 import com.intellij.util.ui.JBUI;
 import git4idea.validators.GitRefNameValidator;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.nio.file.Path;
@@ -29,10 +31,13 @@ public class CreateWorktreeDialog extends DialogWrapper {
   private final JBTextField branchField = new JBTextField();
   private final JComboBox<String> existingBranchCombo = new JComboBox<>();
   private final DefaultComboBoxModel<String> existingBranchModel = new DefaultComboBoxModel<>();
+  private final JComboBox<String> baseCombo = new JComboBox<>();
+  private final DefaultComboBoxModel<String> baseModel = new DefaultComboBoxModel<>();
   private final List<String> allBranches;
   private final JBTextField folderField = new JBTextField();
   private final JBLabel pathPreview = new JBLabel();
   private final Path worktreesParent;
+  private final boolean branchPrefilled;
   private boolean folderFollowsBranch;
   private boolean settingFolderProgrammatically;
 
@@ -40,11 +45,13 @@ public class CreateWorktreeDialog extends DialogWrapper {
                               @NotNull String windowTitle,
                               @NotNull String defaultBranch,
                               @NotNull String defaultFolder,
+                              @NotNull String defaultBase,
                               @NotNull Path worktreesParent,
                               @NotNull List<String> existingBranches) {
     super(project);
     this.worktreesParent = worktreesParent;
     this.allBranches = List.copyOf(existingBranches);
+    this.branchPrefilled = !defaultBranch.isEmpty();
     setTitle(windowTitle);
 
     this.folderFollowsBranch = defaultFolder.isEmpty();
@@ -68,39 +75,17 @@ public class CreateWorktreeDialog extends DialogWrapper {
       }
     });
 
-    for (String b : allBranches) {
-      existingBranchModel.addElement(b);
-    }
-    existingBranchCombo.setModel(existingBranchModel);
-    existingBranchCombo.setEditable(true);
-    existingBranchCombo.setSelectedItem(null);
-    existingBranchCombo.addActionListener(e -> {
+    new BranchComboFilter(existingBranchCombo, existingBranchModel, "", () -> {
       if (existingBranchRadio.isSelected()) {
         syncFolderFromBranch();
-      }
-    });
-    JTextField comboEditor = (JTextField) existingBranchCombo.getEditor().getEditorComponent();
-    comboEditor.setText("");
-    comboEditor.addKeyListener(new KeyAdapter() {
-      @Override
-      public void keyReleased(KeyEvent e) {
-        int code = e.getKeyCode();
-        if (code == KeyEvent.VK_UP || code == KeyEvent.VK_DOWN
-            || code == KeyEvent.VK_ENTER || code == KeyEvent.VK_ESCAPE
-            || code == KeyEvent.VK_LEFT || code == KeyEvent.VK_RIGHT
-            || code == KeyEvent.VK_TAB || code == KeyEvent.VK_HOME
-            || code == KeyEvent.VK_END) {
-          return;
-        }
-        applyBranchFilter();
-        if (existingBranchRadio.isSelected()) {
-          syncFolderFromBranch();
-        }
       }
     });
     if (allBranches.isEmpty()) {
       existingBranchRadio.setEnabled(false);
     }
+
+    new BranchComboFilter(baseCombo, baseModel, defaultBase, () -> {
+    });
 
     ButtonGroup group = new ButtonGroup();
     group.add(newBranchRadio);
@@ -114,9 +99,192 @@ public class CreateWorktreeDialog extends DialogWrapper {
     init();
   }
 
+  /**
+   * Wires speed-filter behavior onto an editable combo: typing narrows the list to matching branches,
+   * starting to type over a committed selection replaces it instead of appending, and {@code Esc}
+   * while editing restores the last committed value rather than closing the dialog.
+   */
+  private final class BranchComboFilter {
+
+    private final JComboBox<String> combo;
+    private final DefaultComboBoxModel<String> model;
+    private final JTextField editor;
+    private final Runnable onChange;
+    private String committedText;
+    private boolean replaceOnType = true;
+    private boolean filtering;
+
+    BranchComboFilter(@NotNull JComboBox<String> combo,
+                      @NotNull DefaultComboBoxModel<String> model,
+                      @NotNull String initial,
+                      @NotNull Runnable onChange) {
+      this.combo = combo;
+      this.model = model;
+      this.editor = (JTextField) combo.getEditor().getEditorComponent();
+      this.onChange = onChange;
+      this.committedText = initial;
+
+      for (String b : allBranches) {
+        model.addElement(b);
+      }
+      combo.setModel(model);
+      combo.setEditable(true);
+      if (initial.isEmpty()) {
+        combo.setSelectedItem(null);
+      }
+      editor.setText(initial);
+
+      combo.addActionListener(e -> {
+        if (filtering) {
+          return;
+        }
+        committedText = editorText();
+        replaceOnType = true;
+        onChange.run();
+      });
+
+      editor.addFocusListener(new FocusAdapter() {
+        @Override
+        public void focusGained(FocusEvent e) {
+          replaceOnType = true;
+          editor.selectAll();
+        }
+      });
+
+      editor.addKeyListener(new KeyAdapter() {
+        @Override
+        public void keyPressed(KeyEvent e) {
+          if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+            if (!editorText().equals(committedText)) {
+              restoreCommitted();
+              e.consume();
+            }
+            return;
+          }
+          if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+            if (combo.isPopupVisible() && model.getSize() > 0) {
+              int idx = combo.getSelectedIndex();
+              commitSelection(model.getElementAt(idx >= 0 ? idx : 0));
+              e.consume();
+            }
+            return;
+          }
+          if (replaceOnType && isReplaceTrigger(e)) {
+            replaceOnType = false;
+            editor.selectAll();
+          }
+        }
+
+        @Override
+        public void keyReleased(KeyEvent e) {
+          if (isNavigationKey(e.getKeyCode())) {
+            return;
+          }
+          applyFilter();
+          onChange.run();
+        }
+      });
+    }
+
+    private String editorText() {
+      Object item = combo.getEditor().getItem();
+      return item == null ? "" : item.toString();
+    }
+
+    private void commitSelection(@NotNull String value) {
+      filtering = true;
+      try {
+        model.removeAllElements();
+        for (String b : allBranches) {
+          model.addElement(b);
+        }
+        editor.setText(value);
+      } finally {
+        filtering = false;
+      }
+      if (combo.isPopupVisible()) {
+        combo.hidePopup();
+      }
+      committedText = value;
+      replaceOnType = true;
+      onChange.run();
+    }
+
+    private void restoreCommitted() {
+      filtering = true;
+      try {
+        model.removeAllElements();
+        for (String b : allBranches) {
+          model.addElement(b);
+        }
+        editor.setText(committedText);
+        editor.selectAll();
+        replaceOnType = true;
+      } finally {
+        filtering = false;
+      }
+      if (combo.isPopupVisible()) {
+        combo.hidePopup();
+      }
+      onChange.run();
+    }
+
+    private void applyFilter() {
+      String text = editor.getText();
+      String needle = text.toLowerCase(Locale.ROOT);
+      int caret = editor.getCaretPosition();
+
+      filtering = true;
+      try {
+        model.removeAllElements();
+        for (String b : allBranches) {
+          if (b.toLowerCase(Locale.ROOT).contains(needle)) {
+            model.addElement(b);
+          }
+        }
+        editor.setText(text);
+      } finally {
+        filtering = false;
+      }
+      try {
+        editor.setCaretPosition(Math.min(caret, text.length()));
+      } catch (IllegalArgumentException ignore) {
+      }
+
+      if (model.getSize() > 0) {
+        if (!combo.isPopupVisible()) {
+          combo.showPopup();
+        }
+      } else if (combo.isPopupVisible()) {
+        combo.hidePopup();
+      }
+    }
+  }
+
+  private static boolean isNavigationKey(int code) {
+    return code == KeyEvent.VK_UP || code == KeyEvent.VK_DOWN
+           || code == KeyEvent.VK_ENTER || code == KeyEvent.VK_ESCAPE
+           || code == KeyEvent.VK_LEFT || code == KeyEvent.VK_RIGHT
+           || code == KeyEvent.VK_TAB || code == KeyEvent.VK_HOME
+           || code == KeyEvent.VK_END;
+  }
+
+  private static boolean isReplaceTrigger(@NotNull KeyEvent e) {
+    if (e.isActionKey() || e.isControlDown() || e.isMetaDown() || e.isAltDown()) {
+      return false;
+    }
+    return switch (e.getKeyCode()) {
+      case KeyEvent.VK_SHIFT, KeyEvent.VK_CONTROL, KeyEvent.VK_ALT, KeyEvent.VK_ALT_GRAPH,
+           KeyEvent.VK_META, KeyEvent.VK_CAPS_LOCK, KeyEvent.VK_ENTER, KeyEvent.VK_ESCAPE,
+           KeyEvent.VK_TAB -> false;
+      default -> true;
+    };
+  }
+
   private void updateMode() {
     boolean useNew = newBranchRadio.isSelected();
     branchField.setEnabled(useNew);
+    baseCombo.setEnabled(useNew && !allBranches.isEmpty());
     existingBranchCombo.setEnabled(!useNew && !allBranches.isEmpty());
     syncFolderFromBranch();
   }
@@ -139,33 +307,6 @@ public class CreateWorktreeDialog extends DialogWrapper {
     updatePathPreview();
   }
 
-  private void applyBranchFilter() {
-    JTextField editor = (JTextField) existingBranchCombo.getEditor().getEditorComponent();
-    String text = editor.getText();
-    String needle = text.toLowerCase(Locale.ROOT);
-    int caret = editor.getCaretPosition();
-
-    existingBranchModel.removeAllElements();
-    for (String b : allBranches) {
-      if (b.toLowerCase(Locale.ROOT).contains(needle)) {
-        existingBranchModel.addElement(b);
-      }
-    }
-    editor.setText(text);
-    try {
-      editor.setCaretPosition(Math.min(caret, text.length()));
-    } catch (IllegalArgumentException ignore) {
-    }
-
-    if (existingBranchModel.getSize() > 0) {
-      if (!existingBranchCombo.isPopupVisible()) {
-        existingBranchCombo.showPopup();
-      }
-    } else if (existingBranchCombo.isPopupVisible()) {
-      existingBranchCombo.hidePopup();
-    }
-  }
-
   private void updatePathPreview() {
     String folder = folderField.getText() == null ? "" : folderField.getText().trim();
     pathPreview.setText(folder.isEmpty() ? " " : worktreesParent.resolve(folder).toString());
@@ -175,6 +316,7 @@ public class CreateWorktreeDialog extends DialogWrapper {
   protected JComponent createCenterPanel() {
     return FormBuilder.createFormBuilder()
                       .addLabeledComponent(newBranchRadio, branchField)
+                      .addLabeledComponent("Base:", baseCombo)
                       .addLabeledComponent(existingBranchRadio, existingBranchCombo)
                       .addLabeledComponent("Folder:", folderField)
                       .addLabeledComponent("Path:", pathPreview)
@@ -183,7 +325,10 @@ public class CreateWorktreeDialog extends DialogWrapper {
 
   @Override
   public @Nullable JComponent getPreferredFocusedComponent() {
-    return branchField.getText().isEmpty() ? branchField : folderField;
+    if (branchField.getText().isEmpty()) {
+      return branchField;
+    }
+    return branchPrefilled ? baseCombo : folderField;
   }
 
   @Override
@@ -195,6 +340,10 @@ public class CreateWorktreeDialog extends DialogWrapper {
       }
       if (!GitRefNameValidator.getInstance().checkInput(branch)) {
         return new ValidationInfo("Invalid branch name", branchField);
+      }
+      String base = getBaseRef();
+      if (base.isEmpty()) {
+        return new ValidationInfo("Base is required", baseCombo);
       }
     } else {
       String branch = getBranch();
@@ -215,12 +364,22 @@ public class CreateWorktreeDialog extends DialogWrapper {
     return null;
   }
 
+  public boolean isNewBranch() {
+    return newBranchRadio.isSelected();
+  }
+
   @NotNull
   public String getBranch() {
     if (newBranchRadio.isSelected()) {
       return branchField.getText() == null ? "" : branchField.getText().trim();
     }
     Object editorItem = existingBranchCombo.getEditor().getItem();
+    return editorItem == null ? "" : editorItem.toString().trim();
+  }
+
+  @NotNull
+  public String getBaseRef() {
+    Object editorItem = baseCombo.getEditor().getItem();
     return editorItem == null ? "" : editorItem.toString().trim();
   }
 
