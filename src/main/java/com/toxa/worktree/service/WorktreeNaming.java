@@ -1,8 +1,10 @@
 package com.toxa.worktree.service;
 
 import com.intellij.tasks.Task;
+import com.intellij.tasks.TaskType;
 import com.toxa.worktree.settings.WorktreeSettings;
 import git4idea.validators.GitRefNameValidator;
+import java.util.Locale;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -11,6 +13,7 @@ import org.jetbrains.annotations.NotNull;
  * <ul>
  *   <li>{@code ${id}} — task presentable id, e.g. {@code TP-12345}</li>
  *   <li>{@code ${number}} — task number</li>
+ *   <li>{@code ${type}} — task type, lower-cased (e.g. {@code bug}, {@code feature})</li>
  *   <li>{@code ${summary}} — task summary</li>
  *   <li>{@code ${project}} — current project / repository name</li>
  * </ul>
@@ -49,8 +52,19 @@ public final class WorktreeNaming {
     return pattern
         .replace("${id}", nullToEmpty(task.getPresentableId()))
         .replace("${number}", nullToEmpty(task.getNumber()))
+        .replace("${type}", taskType(task))
         .replace("${summary}", sanitizeSummary(task.getSummary()))
         .replace("${project}", projectName);
+  }
+
+  @NotNull
+  private static String taskType(@NotNull Task task) {
+    TaskType type = task.getType();
+    if (type == null) {
+      return "";
+    }
+    String resolved = type.name().toLowerCase(Locale.ROOT);
+    return WorktreeSettings.getInstance().getTaskTypeMappings().getOrDefault(resolved, resolved);
   }
 
   @NotNull

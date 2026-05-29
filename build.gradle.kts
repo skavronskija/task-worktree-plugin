@@ -45,6 +45,20 @@ intellijPlatform {
             sinceBuild = "251"
         }
         changeNotes = """
+            <h3>0.0.5</h3>
+            <ul>
+              <li>Branch and worktree folder names are now driven by configurable patterns
+                  under <strong>Settings | Tools | Task Worktree</strong>, with variables
+                  <code>${'$'}{id}</code>, <code>${'$'}{number}</code>, <code>${'$'}{type}</code>,
+                  <code>${'$'}{summary}</code> and <code>${'$'}{project}</code> (both default to
+                  <code>${'$'}{id}</code>).</li>
+              <li>Task summaries are sanitized before use — spaces become <code>_</code> and
+                  special characters are dropped.</li>
+              <li>New task type remapping table lets you override resolved
+                  <code>${'$'}{type}</code> values (e.g. map <code>other</code> to
+                  <code>feature</code>).</li>
+            </ul>
+
             <h3>0.0.4</h3>
             <ul>
               <li>New branches can be created from a chosen <strong>base</strong> ref — branch a new
