@@ -6,15 +6,26 @@ import com.intellij.openapi.components.Service;
 import com.intellij.openapi.components.State;
 import com.intellij.openapi.components.Storage;
 import com.intellij.util.xmlb.XmlSerializerUtil;
+import com.intellij.util.xmlb.annotations.MapAnnotation;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 
 @Service(Service.Level.APP)
 @State(name = "TaskWorktreeSettings", storages = @Storage("task-worktree.xml"))
 public final class WorktreeSettings implements PersistentStateComponent<WorktreeSettings.State> {
 
+  public static final String DEFAULT_BRANCH_NAME_PATTERN = "${id}";
+  public static final String DEFAULT_WORKTREE_NAME_PATTERN = "${id}";
+
   public static final class State {
     public String baseDirectory = "";
     public boolean copyProjectConfig = true;
+    public String branchNamePattern = DEFAULT_BRANCH_NAME_PATTERN;
+    public String worktreeNamePattern = DEFAULT_WORKTREE_NAME_PATTERN;
+
+    @MapAnnotation(surroundWithTag = false, keyAttributeName = "type", valueAttributeName = "mappedTo")
+    public Map<String, String> taskTypeMappings = new LinkedHashMap<>();
   }
 
   private State state = new State();
@@ -48,5 +59,32 @@ public final class WorktreeSettings implements PersistentStateComponent<Worktree
 
   public void setCopyProjectConfig(boolean value) {
     state.copyProjectConfig = value;
+  }
+
+  @NotNull
+  public String getBranchNamePattern() {
+    return state.branchNamePattern == null ? DEFAULT_BRANCH_NAME_PATTERN : state.branchNamePattern;
+  }
+
+  public void setBranchNamePattern(@NotNull String value) {
+    state.branchNamePattern = value;
+  }
+
+  @NotNull
+  public String getWorktreeNamePattern() {
+    return state.worktreeNamePattern == null ? DEFAULT_WORKTREE_NAME_PATTERN : state.worktreeNamePattern;
+  }
+
+  public void setWorktreeNamePattern(@NotNull String value) {
+    state.worktreeNamePattern = value;
+  }
+
+  @NotNull
+  public Map<String, String> getTaskTypeMappings() {
+    return state.taskTypeMappings == null ? Map.of() : state.taskTypeMappings;
+  }
+
+  public void setTaskTypeMappings(@NotNull Map<String, String> value) {
+    state.taskTypeMappings = new LinkedHashMap<>(value);
   }
 }

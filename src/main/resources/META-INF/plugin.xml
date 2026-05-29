@@ -1,5 +1,5 @@
 <idea-plugin>
-  <version>0.0.4</version>
+  <version>0.0.5</version>
   <id>com.toxa.task-worktree-plugin</id>
 
   <name>Task Worktree</name>
@@ -25,9 +25,11 @@
           bulk cleanup of stranded greyed-out entries.</li>
     </ul>
 
-    <p>Settings under <strong>Settings | Tools | Task Worktree</strong>: base worktrees
-    directory and the <code>.idea/</code> copy toggle (both applied globally across
-    projects).</p>
+    <p>Settings under <strong>Settings | Tools | Task Worktree</strong> (applied globally
+    across projects): base worktrees directory, the <code>.idea/</code> copy toggle,
+    configurable branch and worktree folder name patterns (variables: <code>id</code>,
+    <code>number</code>, <code>type</code>, <code>summary</code>, <code>project</code>),
+    and a task type remapping table.</p>
 
     <p>Default shortcut: <strong>Alt+Shift+P</strong>.</p>
   ]]></description>
