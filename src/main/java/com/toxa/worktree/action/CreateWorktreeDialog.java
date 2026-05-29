@@ -161,6 +161,14 @@ public class CreateWorktreeDialog extends DialogWrapper {
             }
             return;
           }
+          if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+            if (combo.isPopupVisible() && model.getSize() > 0) {
+              int idx = combo.getSelectedIndex();
+              commitSelection(model.getElementAt(idx >= 0 ? idx : 0));
+              e.consume();
+            }
+            return;
+          }
           if (replaceOnType && isReplaceTrigger(e)) {
             replaceOnType = false;
             editor.selectAll();
@@ -181,6 +189,25 @@ public class CreateWorktreeDialog extends DialogWrapper {
     private String editorText() {
       Object item = combo.getEditor().getItem();
       return item == null ? "" : item.toString();
+    }
+
+    private void commitSelection(@NotNull String value) {
+      filtering = true;
+      try {
+        model.removeAllElements();
+        for (String b : allBranches) {
+          model.addElement(b);
+        }
+        editor.setText(value);
+      } finally {
+        filtering = false;
+      }
+      if (combo.isPopupVisible()) {
+        combo.hidePopup();
+      }
+      committedText = value;
+      replaceOnType = true;
+      onChange.run();
     }
 
     private void restoreCommitted() {
