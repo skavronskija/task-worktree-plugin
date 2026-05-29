@@ -8,7 +8,9 @@ import com.intellij.notification.Notifications;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
@@ -18,6 +20,7 @@ import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.ListSeparator;
 import com.intellij.openapi.ui.popup.PopupStep;
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep;
+import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.tasks.Task;
 import com.intellij.tasks.TaskManager;
@@ -239,7 +242,26 @@ public class OpenTaskInWorktreeAction extends AnAction {
       notifyError(project, "Worktree directory no longer exists: " + worktreePath);
       return;
     }
-    ProjectUtil.openOrImport(worktreePath, project, false);
+    openWorktreeProject(project, worktreePath);
+  }
+
+  /**
+   * Opens the worktree as a project from a clean, non-modal EDT context. Reusing the current window
+   * disposes the current project synchronously; doing that from inside the worktree-creation task's
+   * own modality is what froze the IDE, so the open is deferred to {@link ModalityState#nonModal()}.
+   * The new directory is registered with the VFS first so the copied {@code .idea} is picked up.
+   */
+  private void openWorktreeProject(@NotNull Project projectToClose, @NotNull Path worktreePath) {
+    Runnable open = () -> {
+      LocalFileSystem.getInstance().refreshAndFindFileByNioFile(worktreePath);
+      ProjectUtil.openOrImport(worktreePath, projectToClose, false);
+    };
+    Application application = ApplicationManager.getApplication();
+    if (application.isDispatchThread()) {
+      open.run();
+    } else {
+      application.invokeLater(open, ModalityState.nonModal(), projectToClose.getDisposed());
+    }
   }
 
   private void confirmAndRemoveWorktree(@NotNull Project project,
@@ -352,8 +374,11 @@ public class OpenTaskInWorktreeAction extends AnAction {
     allBranches.addAll(localBranches);
     allBranches.addAll(remoteByName.keySet());
 
+    git4idea.GitLocalBranch current = gitRepo.getCurrentBranch();
+    String defaultBase = current != null ? current.getName() : "";
+
     CreateWorktreeDialog dialog = new CreateWorktreeDialog(
-        project, windowTitle, defaultBranch, defaultFolder, worktreesParent, allBranches);
+        project, windowTitle, defaultBranch, defaultFolder, defaultBase, worktreesParent, allBranches);
     if (!dialog.showAndGet()) {
       return;
     }
@@ -361,17 +386,26 @@ public class OpenTaskInWorktreeAction extends AnAction {
     String folderName = dialog.getFolder();
     Path worktreePath = worktreesParent.resolve(folderName);
 
-    git4idea.GitRemoteBranch pickedRemote = remoteByName.get(dialogBranch);
-    String branchName = pickedRemote == null ? dialogBranch : pickedRemote.getNameForRemoteOperations();
-    String baseRef = pickedRemote == null ? null : pickedRemote.getName();
+    String branchName;
+    String baseRef;
+    if (dialog.isNewBranch()) {
+      branchName = dialogBranch;
+      baseRef = dialog.getBaseRef();
+    } else {
+      git4idea.GitRemoteBranch pickedRemote = remoteByName.get(dialogBranch);
+      branchName = pickedRemote == null ? dialogBranch : pickedRemote.getNameForRemoteOperations();
+      baseRef = pickedRemote == null ? null : pickedRemote.getName();
+    }
 
     if (Files.isDirectory(worktreePath)) {
-      ProjectUtil.openOrImport(worktreePath, project, false);
+      openWorktreeProject(project, worktreePath);
       return;
     }
 
     ProgressManager.getInstance().run(
         new com.intellij.openapi.progress.Task.Backgroundable(project, "Creating worktree " + branchName, true) {
+          private boolean created;
+
           @Override
           public void run(@NotNull ProgressIndicator indicator) {
             WorktreeService.Result result;
@@ -390,10 +424,14 @@ public class OpenTaskInWorktreeAction extends AnAction {
               notifyError(project, "git worktree add failed (exit " + result.exitCode() + "): " + detail.trim());
               return;
             }
-            ApplicationManager.getApplication().invokeLater(
-                () -> ProjectUtil.openOrImport(worktreePath, project, false),
-                project.getDisposed()
-            );
+            created = true;
+          }
+
+          @Override
+          public void onSuccess() {
+            if (created) {
+              openWorktreeProject(project, worktreePath);
+            }
           }
         });
   }
