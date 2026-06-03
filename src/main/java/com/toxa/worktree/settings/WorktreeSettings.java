@@ -7,7 +7,10 @@ import com.intellij.openapi.components.State;
 import com.intellij.openapi.components.Storage;
 import com.intellij.util.xmlb.XmlSerializerUtil;
 import com.intellij.util.xmlb.annotations.MapAnnotation;
+import com.intellij.util.xmlb.annotations.XCollection;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 
@@ -26,6 +29,9 @@ public final class WorktreeSettings implements PersistentStateComponent<Worktree
 
     @MapAnnotation(surroundWithTag = false, keyAttributeName = "type", valueAttributeName = "mappedTo")
     public Map<String, String> taskTypeMappings = new LinkedHashMap<>();
+
+    @XCollection(style = XCollection.Style.v2)
+    public List<String> additionalCopyPatterns = new ArrayList<>();
   }
 
   private State state = new State();
@@ -86,5 +92,14 @@ public final class WorktreeSettings implements PersistentStateComponent<Worktree
 
   public void setTaskTypeMappings(@NotNull Map<String, String> value) {
     state.taskTypeMappings = new LinkedHashMap<>(value);
+  }
+
+  @NotNull
+  public List<String> getAdditionalCopyPatterns() {
+    return state.additionalCopyPatterns == null ? List.of() : state.additionalCopyPatterns;
+  }
+
+  public void setAdditionalCopyPatterns(@NotNull List<String> value) {
+    state.additionalCopyPatterns = new ArrayList<>(value);
   }
 }
