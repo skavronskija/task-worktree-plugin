@@ -15,12 +15,14 @@ import com.intellij.util.ui.FormBuilder;
 import com.intellij.util.ui.JBUI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableModel;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.NotNull;
@@ -30,14 +32,20 @@ public class WorktreeSettingsConfigurable implements Configurable {
 
   private static final int PREVIEW_LIMIT = 20;
 
-  private static final String VARIABLES_HINT =
-      "<html>Pattern variables:<br>"
-      + "&nbsp;&nbsp;${id} - task ID<br>"
-      + "&nbsp;&nbsp;${number} - task number<br>"
-      + "&nbsp;&nbsp;${type} - task type (e.g. bug, feature)<br>"
-      + "&nbsp;&nbsp;${summary} - task summary<br>"
-      + "&nbsp;&nbsp;${project} - current project/repo name<br>"
-      + "<br>Leave a pattern blank to use the task id.</html>";
+  private static final String VARIABLES_HINT = """
+      <html>Pattern variables:<br>
+      &nbsp;&nbsp;${id} - task ID<br>
+      &nbsp;&nbsp;${number} - task number<br>
+      &nbsp;&nbsp;${type} - task type (e.g. bug, feature)<br>
+      &nbsp;&nbsp;${summary} - task summary<br>
+      &nbsp;&nbsp;${project} - current project/repo name<br>
+      <br>Leave a pattern blank to use the task id.</html>""";
+
+  private static final String COPY_PATTERNS_HINT = """
+      <html>Copy un-tracked files from the main repo into each new worktree.<br>
+      Paths are relative to the repo root; glob syntax is supported<br>
+      (e.g. <code>.env</code>, <code>config/**</code>, <code>*.local.properties</code>).<br>
+      Directories are copied recursively; patterns matching nothing are skipped.</html>""";
 
   private TextFieldWithBrowseButton baseDirField;
   private JBCheckBox copyConfigCheckbox;
@@ -45,6 +53,8 @@ public class WorktreeSettingsConfigurable implements Configurable {
   private JBTextField worktreePatternField;
   private JBTable typeMappingTable;
   private DefaultTableModel typeMappingModel;
+  private JBTable copyPatternTable;
+  private DefaultTableModel copyPatternModel;
   private JPanel panel;
 
   @Override
@@ -64,21 +74,19 @@ public class WorktreeSettingsConfigurable implements Configurable {
 
     copyConfigCheckbox = new JBCheckBox("Copy project configuration (.idea) to new worktrees");
 
-    JBLabel hint = new JBLabel("Leave blank to use <repo parent>/worktrees. Relative paths resolve against the repo parent.");
-    hint.setForeground(JBUI.CurrentTheme.ContextHelp.FOREGROUND);
+    JBLabel hint = hintLabel("Leave blank to use <repo parent>/worktrees. Relative paths resolve against the repo parent.");
 
     branchPatternField = new JBTextField();
     worktreePatternField = new JBTextField();
 
-    JBLabel variablesHint = new JBLabel(VARIABLES_HINT);
-    variablesHint.setForeground(JBUI.CurrentTheme.ContextHelp.FOREGROUND);
+    JBLabel variablesHint = hintLabel(VARIABLES_HINT);
 
     JButton cleanupButton = new JButton("Clean Up Obsolete Recent Projects");
     cleanupButton.addActionListener(e -> cleanUpObsoleteRecentProjects());
 
-    JBLabel mappingHint = new JBLabel(
-        "Remap resolved ${type} values, e.g. map \"other\" to \"feature\".");
-    mappingHint.setForeground(JBUI.CurrentTheme.ContextHelp.FOREGROUND);
+    JBLabel mappingHint = hintLabel("Remap resolved ${type} values, e.g. map \"other\" to \"feature\".");
+
+    JBLabel copyPatternHint = hintLabel(COPY_PATTERNS_HINT);
 
     panel = FormBuilder.createFormBuilder()
                        .addLabeledComponent("Base worktrees directory:", baseDirField)
@@ -89,15 +97,34 @@ public class WorktreeSettingsConfigurable implements Configurable {
                        .addSeparator()
                        .addComponent(variablesHint)
                        .addSeparator()
-                       .addComponent(new JBLabel("Task type mappings:"))
-                       .addComponentToRightColumn(mappingHint)
-                       .addComponentFillVertically(createTypeMappingPanel(), 0)
+                       .addComponent(leftLabel("Task type mappings:"))
+                       .addComponent(mappingHint)
+                       .addComponent(createTypeMappingPanel())
+                       .addSeparator()
+                       .addComponent(leftLabel("Additional files to copy:"))
+                       .addComponent(copyPatternHint)
+                       .addComponentFillVertically(createCopyPatternPanel(), 0)
                        .addSeparator()
                        .addComponent(cleanupButton)
                        .getPanel();
 
     reset();
     return panel;
+  }
+
+  @NotNull
+  private static JBLabel leftLabel(@NotNull String text) {
+    JBLabel label = new JBLabel(text);
+    label.setHorizontalAlignment(SwingConstants.LEFT);
+    label.setAlignmentX(0f);
+    return label;
+  }
+
+  @NotNull
+  private static JBLabel hintLabel(@NotNull String text) {
+    JBLabel label = leftLabel(text);
+    label.setForeground(JBUI.CurrentTheme.ContextHelp.FOREGROUND);
+    return label;
   }
 
   private JComponent createTypeMappingPanel() {
@@ -119,19 +146,77 @@ public class WorktreeSettingsConfigurable implements Configurable {
                            .createPanel();
   }
 
+  private JComponent createCopyPatternPanel() {
+    copyPatternModel = new DefaultTableModel(new Object[]{"Path / glob pattern"}, 0);
+    copyPatternTable = new JBTable(copyPatternModel);
+    copyPatternTable.setVisibleRowCount(4);
+    return ToolbarDecorator.createDecorator(copyPatternTable)
+                           .setAddAction(b -> {
+                             stopTableEditing();
+                             copyPatternModel.addRow(new Object[]{""});
+                             editLastRow(copyPatternTable);
+                           })
+                           .setRemoveAction(b -> {
+                             stopTableEditing();
+                             int row = copyPatternTable.getSelectedRow();
+                             if (row >= 0) {
+                               copyPatternModel.removeRow(row);
+                             }
+                           })
+                           .createPanel();
+  }
+
+  private static void editLastRow(@NotNull JBTable table) {
+    int row = table.getRowCount() - 1;
+    if (row >= 0) {
+      table.editCellAt(row, 0);
+      table.changeSelection(row, 0, false, false);
+      if (table.getEditorComponent() != null) {
+        table.getEditorComponent().requestFocusInWindow();
+      }
+    }
+  }
+
+  // Reads the current value of a cell, preferring the live editor value when the cell is being
+  // edited. Crucially this never stops the editor: stopping it from isModified() (which the
+  // settings dialog polls on a timer) would drop focus mid-typing.
+  @NotNull
+  private static String cellValue(@NotNull JBTable table, @NotNull DefaultTableModel model, int row, int column) {
+    if (table.isEditing() && table.getEditingRow() == row && table.getEditingColumn() == column) {
+      Object editorValue = table.getCellEditor().getCellEditorValue();
+      return editorValue == null ? "" : editorValue.toString().trim();
+    }
+    Object value = model.getValueAt(row, column);
+    return value == null ? "" : value.toString().trim();
+  }
+
   private void stopTableEditing() {
     if (typeMappingTable != null && typeMappingTable.isEditing()) {
       typeMappingTable.getCellEditor().stopCellEditing();
     }
+    if (copyPatternTable != null && copyPatternTable.isEditing()) {
+      copyPatternTable.getCellEditor().stopCellEditing();
+    }
+  }
+
+  @NotNull
+  private List<String> readCopyPatterns() {
+    List<String> result = new ArrayList<>();
+    for (int row = 0; row < copyPatternModel.getRowCount(); row++) {
+      String value = cellValue(copyPatternTable, copyPatternModel, row, 0);
+      if (!value.isEmpty() && !result.contains(value)) {
+        result.add(value);
+      }
+    }
+    return result;
   }
 
   @NotNull
   private Map<String, String> readTypeMappings() {
-    stopTableEditing();
     Map<String, String> result = new LinkedHashMap<>();
     for (int row = 0; row < typeMappingModel.getRowCount(); row++) {
-      String key = String.valueOf(typeMappingModel.getValueAt(row, 0)).trim();
-      String value = String.valueOf(typeMappingModel.getValueAt(row, 1)).trim();
+      String key = cellValue(typeMappingTable, typeMappingModel, row, 0);
+      String value = cellValue(typeMappingTable, typeMappingModel, row, 1);
       if (!key.isEmpty() && !value.isEmpty()) {
         result.put(key, value);
       }
@@ -189,7 +274,8 @@ public class WorktreeSettingsConfigurable implements Configurable {
            || copyConfigCheckbox.isSelected() != s.isCopyProjectConfig()
            || !branchPatternField.getText().trim().equals(s.getBranchNamePattern())
            || !worktreePatternField.getText().trim().equals(s.getWorktreeNamePattern())
-           || !readTypeMappings().equals(s.getTaskTypeMappings());
+           || !readTypeMappings().equals(s.getTaskTypeMappings())
+           || !readCopyPatterns().equals(s.getAdditionalCopyPatterns());
   }
 
   @Override
@@ -200,6 +286,7 @@ public class WorktreeSettingsConfigurable implements Configurable {
     s.setBranchNamePattern(branchPatternField.getText().trim());
     s.setWorktreeNamePattern(worktreePatternField.getText().trim());
     s.setTaskTypeMappings(readTypeMappings());
+    s.setAdditionalCopyPatterns(readCopyPatterns());
   }
 
   @Override
@@ -214,6 +301,10 @@ public class WorktreeSettingsConfigurable implements Configurable {
     for (Map.Entry<String, String> entry : s.getTaskTypeMappings().entrySet()) {
       typeMappingModel.addRow(new Object[]{entry.getKey(), entry.getValue()});
     }
+    copyPatternModel.setRowCount(0);
+    for (String pattern : s.getAdditionalCopyPatterns()) {
+      copyPatternModel.addRow(new Object[]{pattern});
+    }
   }
 
   @Override
@@ -225,5 +316,7 @@ public class WorktreeSettingsConfigurable implements Configurable {
     worktreePatternField = null;
     typeMappingTable = null;
     typeMappingModel = null;
+    copyPatternTable = null;
+    copyPatternModel = null;
   }
 }

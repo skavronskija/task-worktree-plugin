@@ -14,9 +14,11 @@ import git4idea.repo.GitRepository;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.PathMatcher;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -29,6 +31,7 @@ public final class WorktreeService {
 
   private static final Logger LOG = Logger.getInstance(WorktreeService.class);
   private static final String IDEA_DIR = ".idea";
+  private static final String GIT_DIR = ".git";
 
   public record Result(boolean success, @NotNull String stdout, @NotNull String stderr, int exitCode) {
   }
@@ -157,9 +160,11 @@ public final class WorktreeService {
 
     Result result = new Result(output.getExitCode() == 0, output.getStdout(), output.getStderr(), output.getExitCode());
     if (result.success()) {
+      Path sourceRoot = Path.of(repo.getRoot().getPath());
       if (WorktreeSettings.getInstance().isCopyProjectConfig()) {
-        copyIdeaConfig(Path.of(repo.getRoot().getPath()), targetPath);
+        copyIdeaConfig(sourceRoot, targetPath);
       }
+      copyAdditionalFiles(sourceRoot, targetPath, WorktreeSettings.getInstance().getAdditionalCopyPatterns());
       repo.update();
     }
     return result;
@@ -190,5 +195,114 @@ public final class WorktreeService {
     } catch (IOException e) {
       LOG.warn("Failed to copy " + IDEA_DIR + " to worktree at " + targetRoot, e);
     }
+  }
+
+  private static void copyAdditionalFiles(@NotNull Path sourceRoot,
+                                          @NotNull Path targetRoot,
+                                          @NotNull List<String> patterns) {
+    for (String raw : patterns) {
+      String pattern = raw == null ? "" : raw.trim();
+      if (pattern.isEmpty()) {
+        continue;
+      }
+      try {
+        copyByPattern(sourceRoot, targetRoot, pattern);
+      } catch (IOException e) {
+        LOG.warn("Failed to copy additional files for pattern '" + pattern + "' to worktree at " + targetRoot, e);
+      }
+    }
+  }
+
+  private static void copyByPattern(@NotNull Path sourceRoot,
+                                    @NotNull Path targetRoot,
+                                    @NotNull String pattern) throws IOException {
+    if (!isGlob(pattern)) {
+      Path source = sourceRoot.resolve(pattern).normalize();
+      if (source.startsWith(sourceRoot) && Files.exists(source)) {
+        copyMatched(source, sourceRoot, targetRoot);
+      }
+      return;
+    }
+
+    Path walkRoot = sourceRoot.resolve(literalPrefix(pattern)).normalize();
+    if (!walkRoot.startsWith(sourceRoot) || !Files.exists(walkRoot)) {
+      return;
+    }
+    PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + pattern);
+    Files.walkFileTree(walkRoot, new SimpleFileVisitor<>() {
+      @Override
+      public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+        return isGitDir(dir) ? FileVisitResult.SKIP_SUBTREE : FileVisitResult.CONTINUE;
+      }
+
+      @Override
+      public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+        if (matcher.matches(sourceRoot.relativize(file))) {
+          copyFile(file, targetRoot.resolve(sourceRoot.relativize(file)));
+        }
+        return FileVisitResult.CONTINUE;
+      }
+    });
+  }
+
+  private static void copyMatched(@NotNull Path source,
+                                  @NotNull Path sourceRoot,
+                                  @NotNull Path targetRoot) throws IOException {
+    if (!Files.isDirectory(source)) {
+      copyFile(source, targetRoot.resolve(sourceRoot.relativize(source)));
+      return;
+    }
+    Files.walkFileTree(source, new SimpleFileVisitor<>() {
+      @Override
+      public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+        if (isGitDir(dir)) {
+          return FileVisitResult.SKIP_SUBTREE;
+        }
+        Files.createDirectories(targetRoot.resolve(sourceRoot.relativize(dir)));
+        return FileVisitResult.CONTINUE;
+      }
+
+      @Override
+      public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+        copyFile(file, targetRoot.resolve(sourceRoot.relativize(file)));
+        return FileVisitResult.CONTINUE;
+      }
+    });
+  }
+
+  private static void copyFile(@NotNull Path source, @NotNull Path dest) throws IOException {
+    Path parent = dest.getParent();
+    if (parent != null) {
+      Files.createDirectories(parent);
+    }
+    Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+  }
+
+  private static boolean isGitDir(@NotNull Path dir) {
+    Path name = dir.getFileName();
+    return name != null && GIT_DIR.equals(name.toString());
+  }
+
+  private static boolean isGlob(@NotNull String pattern) {
+    return pattern.indexOf('*') >= 0
+           || pattern.indexOf('?') >= 0
+           || pattern.indexOf('[') >= 0
+           || pattern.indexOf('{') >= 0;
+  }
+
+  @NotNull
+  private static String literalPrefix(@NotNull String pattern) {
+    String[] segments = pattern.replace('\\', '/').split("/");
+    StringBuilder prefix = new StringBuilder();
+    for (String segment : segments) {
+      if (isGlob(segment)) {
+        break;
+      }
+      if (prefix.length() > 0) {
+        prefix.append('/');
+      }
+      prefix.append(segment);
+    }
+    return prefix.toString();
   }
 }
