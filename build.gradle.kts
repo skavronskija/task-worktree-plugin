@@ -45,6 +45,15 @@ intellijPlatform {
             sinceBuild = "251"
         }
         changeNotes = """
+            <h3>0.0.6</h3>
+            <ul>
+              <li>New <strong>Additional files to copy</strong> setting: copy un-tracked files
+                  (e.g. <code>.env</code>, <code>config/**</code>,
+                  <code>*.local.properties</code>) from the main repo working tree into every
+                  new worktree. Paths are relative to the repo root, glob syntax is supported,
+                  directories are copied recursively, and patterns matching nothing are skipped.</li>
+            </ul>
+
             <h3>0.0.5</h3>
             <ul>
               <li>Branch and worktree folder names are now driven by configurable patterns
