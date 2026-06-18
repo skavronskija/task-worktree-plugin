@@ -45,6 +45,12 @@ intellijPlatform {
             sinceBuild = "251"
         }
         changeNotes = """
+            <h3>0.0.7</h3>
+            <ul>
+              <li>Refreshed the plugin description to cover base-ref selection and the
+                  additional files-to-copy setting.</li>
+            </ul>
+
             <h3>0.0.6</h3>
             <ul>
               <li>New <strong>Additional files to copy</strong> setting: copy un-tracked files

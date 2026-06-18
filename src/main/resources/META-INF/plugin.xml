@@ -1,5 +1,5 @@
 <idea-plugin>
-  <version>0.0.6</version>
+  <version>0.0.7</version>
   <id>com.toxa.task-worktree-plugin</id>
 
   <name>Task Worktree</name>
@@ -17,19 +17,25 @@
           a custom worktree on any new or existing local branch.</li>
       <li>Searchable, two-section picker (existing worktrees + tasks) with type-to-filter
           for both the item list and the branch selector.</li>
+      <li>Create a new branch from any chosen <strong>base</strong> ref (local or remote) —
+          branch a worktree off e.g. <code>main</code> without switching to the main
+          worktree first. Picking a remote branch creates a local tracking branch.</li>
       <li>Open or remove existing worktrees inline. The main repo worktree is protected
           from deletion.</li>
       <li>Optionally copies the source repo's <code>.idea/</code> into each new worktree
           so the IDE opens with project settings intact.</li>
+      <li>Copy additional un-tracked files (e.g. <code>.env</code>, <code>config/**</code>)
+          from the main repo working tree into every new worktree using configurable glob
+          patterns — directories are copied recursively.</li>
       <li>Automatically drops the removed worktree's path from Recent Projects; one-click
           bulk cleanup of stranded greyed-out entries.</li>
     </ul>
 
     <p>Settings under <strong>Settings | Tools | Task Worktree</strong> (applied globally
     across projects): base worktrees directory, the <code>.idea/</code> copy toggle,
-    configurable branch and worktree folder name patterns (variables: <code>id</code>,
-    <code>number</code>, <code>type</code>, <code>summary</code>, <code>project</code>),
-    and a task type remapping table.</p>
+    additional files-to-copy glob patterns, configurable branch and worktree folder name
+    patterns (variables: <code>id</code>, <code>number</code>, <code>type</code>,
+    <code>summary</code>, <code>project</code>), and a task type remapping table.</p>
 
     <p>Default shortcut: <strong>Alt+Shift+P</strong>.</p>
   ]]></description>
