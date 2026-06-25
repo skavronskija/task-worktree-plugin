@@ -46,7 +46,7 @@ intellijPlatform {
             sinceBuild = "251"
         }
         changeNotes = """
-            <h3>0.0.8</h3>
+            <h3>0.0.9</h3>
             <ul>
               <li>Existing worktrees now show their GitHub pull-request status as an outlined badge
                   (<code>DRAFT</code>, <code>OPEN</code>, <code>MERGED</code>, <code>CLOSED</code>)
