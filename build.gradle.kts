@@ -26,6 +26,7 @@ dependencies {
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
         bundledPlugin("com.intellij.tasks")
         bundledPlugin("Git4Idea")
+        bundledPlugin("org.jetbrains.plugins.github")
     }
 }
 

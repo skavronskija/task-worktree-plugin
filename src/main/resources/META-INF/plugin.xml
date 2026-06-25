@@ -43,6 +43,7 @@
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.tasks</depends>
   <depends>Git4Idea</depends>
+  <depends optional="true" config-file="github-pr.xml">org.jetbrains.plugins.github</depends>
 
   <extensions defaultExtensionNs="com.intellij">
     <notificationGroup id="Task Worktree" displayType="BALLOON"/>

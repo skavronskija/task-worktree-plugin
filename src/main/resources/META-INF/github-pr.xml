@@ -1,0 +1,4 @@
+<idea-plugin>
+  <!-- Optional module loaded only when org.jetbrains.plugins.github is present.
+       PR status badges in the worktree picker depend on the GitHub plugin's API. -->
+</idea-plugin>

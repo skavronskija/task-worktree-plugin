@@ -17,6 +17,7 @@ import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
+import com.intellij.openapi.ui.popup.ListPopup;
 import com.intellij.openapi.ui.popup.ListSeparator;
 import com.intellij.openapi.ui.popup.PopupStep;
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep;
@@ -25,6 +26,10 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.tasks.Task;
 import com.intellij.tasks.TaskManager;
 import com.intellij.tasks.TaskRepository;
+import com.intellij.ui.popup.list.ListPopupImpl;
+import com.intellij.ui.popup.list.PopupListElementRenderer;
+import com.toxa.worktree.service.PrStatusService;
+import com.toxa.worktree.service.PrStatusService.PrStatus;
 import com.toxa.worktree.service.WorktreeNaming;
 import com.toxa.worktree.service.WorktreeService;
 import com.toxa.worktree.settings.WorktreeSettings;
@@ -37,6 +42,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import javax.swing.Icon;
 import org.jetbrains.annotations.NotNull;
@@ -202,7 +208,50 @@ public class OpenTaskInWorktreeAction extends AnAction {
       }
     };
 
-    JBPopupFactory.getInstance().createListPopup(step).showCenteredInCurrentWindow(project);
+    Map<String, PrStatus> prByBranch = new ConcurrentHashMap<>();
+    ListPopup popup = JBPopupFactory.getInstance().createListPopup(
+        project,
+        step,
+        base -> new PrBadgeRenderer(((PopupListElementRenderer<?>) base).getPopup(), prByBranch));
+    popup.showCenteredInCurrentWindow(project);
+
+    loadPrStatuses(project, gitRepo, worktrees, prByBranch, popup);
+  }
+
+  /**
+   * Fetches PR statuses off the EDT after the popup is already visible, then fills the shared map
+   * and repaints the popup. The renderer reserves a fixed badge slot up front, so the popup is
+   * already sized for badges and a repaint is enough to reveal them.
+   */
+  private void loadPrStatuses(@NotNull Project project,
+                              @NotNull GitRepository gitRepo,
+                              @NotNull List<WorktreeService.WorktreeInfo> worktrees,
+                              @NotNull Map<String, PrStatus> prByBranch,
+                              @NotNull ListPopup popup) {
+    if (!PrStatusService.isAvailable()) {
+      return;
+    }
+    List<String> branches = new ArrayList<>();
+    for (WorktreeService.WorktreeInfo w : worktrees) {
+      if (!w.main() && !w.branch().isEmpty()) {
+        branches.add(w.branch());
+      }
+    }
+    if (branches.isEmpty()) {
+      return;
+    }
+    ApplicationManager.getApplication().executeOnPooledThread(() -> {
+      Map<String, PrStatus> statuses = PrStatusService.fetch(project, gitRepo, branches);
+      if (statuses.isEmpty()) {
+        return;
+      }
+      ApplicationManager.getApplication().invokeLater(() -> {
+        prByBranch.putAll(statuses);
+        if (!popup.isDisposed() && popup instanceof ListPopupImpl listPopup) {
+          listPopup.getList().repaint();
+        }
+      }, project.getDisposed());
+    });
   }
 
   private PopupStep<?> worktreeActionStep(@NotNull Project project,
