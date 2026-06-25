@@ -36,13 +36,17 @@ intellijPlatform {
             // 2026.1.3 and 2026.2 EAP have no standalone installers yet, only intellij-repository
             // archives, so useInstaller = false makes the verifier download the ZIP distribution.
             create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2025.1.4.1")
-            ide(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2026.1.3", false)
-            ide(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "262.8377.35-EAP-CANDIDATE", false)
+            create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2026.1.3") {
+                useInstaller.set(false)
+            }
+            create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "262.8377.35-EAP-CANDIDATE") {
+                useInstaller.set(false)
+            }
         }
     }
     publishing {
         token = providers.environmentVariable("JETBRAINS_MARKETPLACE_TOKEN")
-        channels = listOf("default")
+        channels = listOf("unstable")
     }
 
     pluginConfiguration {

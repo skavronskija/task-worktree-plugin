@@ -40,8 +40,11 @@ jobs:
       - name: Build plugin
         run: ./gradlew buildPlugin
 
-      - name: Verify plugin compatibility
-        run: ./gradlew verifyPlugin
+      # Basic validation only. The full IDE-compatibility check (./gradlew verifyPlugin, which
+      # downloads several IDE distributions) is run locally — see the pluginVerification block in
+      # build.gradle.kts — and is intentionally kept out of CI.
+      - name: Validate plugin
+        run: ./gradlew verifyPluginProjectConfiguration verifyPluginStructure
 
       - name: Publish to JetBrains Marketplace
         env:
