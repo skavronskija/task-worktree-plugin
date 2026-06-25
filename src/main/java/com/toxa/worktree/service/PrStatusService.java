@@ -1,8 +1,6 @@
 package com.toxa.worktree.service;
 
-import com.intellij.ide.plugins.PluginManager;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.extensions.PluginId;
 import com.intellij.openapi.project.Project;
 import git4idea.repo.GitRepository;
 import java.util.Collection;
@@ -37,7 +35,7 @@ import com.intellij.collaboration.api.data.GraphQLRequestPagination;
 public final class PrStatusService {
 
   private static final Logger LOG = Logger.getInstance(PrStatusService.class);
-  private static final String GITHUB_PLUGIN_ID = "org.jetbrains.plugins.github";
+  private static final String GH_PROBE_CLASS = "org.jetbrains.plugins.github.util.GHHostedRepositoriesManager";
   private static final int MAX_BRANCHES = 30;
 
   public enum PrStatus {
@@ -47,9 +45,19 @@ public final class PrStatusService {
   private PrStatusService() {
   }
 
-  /** Whether the optional GitHub plugin is installed and enabled. */
+  /**
+   * Whether the optional GitHub plugin is enabled. Probes for one of its classes on this plugin's
+   * classloader instead of querying the plugin manager: an optional dependency's classes are only
+   * visible here while the plugin is loaded, so this both avoids unstable plugin-management API and
+   * precisely tracks the enabled state.
+   */
   public static boolean isAvailable() {
-    return PluginManager.getInstance().findEnabledPlugin(PluginId.getId(GITHUB_PLUGIN_ID)) != null;
+    try {
+      Class.forName(GH_PROBE_CLASS, false, PrStatusService.class.getClassLoader());
+      return true;
+    } catch (Throwable t) {
+      return false;
+    }
   }
 
   /**
