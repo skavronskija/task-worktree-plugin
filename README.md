@@ -47,7 +47,3 @@ Toolchain: Java 21, Kotlin 2.1.0, IntelliJ Platform Gradle Plugin 2.7.1, target 
 ```
 
 The version comes from `<version>` in `src/main/resources/META-INF/plugin.xml`. To override for a one-off build: `./gradlew -PbuildVersion=0.1.0-rc1 buildPlugin`.
-
-## License
-
-TBD.
