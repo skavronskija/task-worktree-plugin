@@ -1,0 +1,52 @@
+name: Publish Unstable
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+# Never let two merge-publishes run at once; each must get a distinct version uploaded.
+concurrency:
+  group: publish-unstable
+  cancel-in-progress: false
+
+jobs:
+  publish-unstable:
+    name: Build and publish to unstable channel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compute pre-release version
+        id: version
+        run: |
+          # Marketplace keys versions by number per plugin, so every merge needs a unique one.
+          BASE=$(grep -oE '<version>[^<]+</version>' src/main/resources/META-INF/plugin.xml | head -1 | sed 's/<[^>]*>//g')
+          VERSION="${BASE}-unstable.${{ github.run_number }}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing unstable version: $VERSION"
+
+      - name: Build plugin
+        run: ./gradlew buildPlugin -PbuildVersion=${{ steps.version.outputs.version }}
+
+      - name: Publish to JetBrains Marketplace (unstable channel)
+        env:
+          JETBRAINS_MARKETPLACE_TOKEN: ${{ secrets.JETBRAINS_MARKETPLACE_TOKEN }}
+        run: >-
+          ./gradlew publishPlugin
+          -PbuildVersion=${{ steps.version.outputs.version }}
+          -PpublishChannel=unstable

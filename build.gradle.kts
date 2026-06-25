@@ -46,7 +46,7 @@ intellijPlatform {
     }
     publishing {
         token = providers.environmentVariable("JETBRAINS_MARKETPLACE_TOKEN")
-        channels = listOf("unstable")
+        channels = listOf((findProperty("publishChannel") as String?) ?: "default")
     }
 
     pluginConfiguration {
