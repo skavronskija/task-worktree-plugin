@@ -1,7 +1,6 @@
 package com.toxa.worktree.service;
 
-import com.intellij.ide.plugins.IdeaPluginDescriptor;
-import com.intellij.ide.plugins.PluginManagerCore;
+import com.intellij.ide.plugins.PluginManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.extensions.PluginId;
 import com.intellij.openapi.project.Project;
@@ -50,8 +49,7 @@ public final class PrStatusService {
 
   /** Whether the optional GitHub plugin is installed and enabled. */
   public static boolean isAvailable() {
-    IdeaPluginDescriptor descriptor = PluginManagerCore.getPlugin(PluginId.getId(GITHUB_PLUGIN_ID));
-    return descriptor != null && descriptor.isEnabled();
+    return PluginManager.getInstance().findEnabledPlugin(PluginId.getId(GITHUB_PLUGIN_ID)) != null;
   }
 
   /**
