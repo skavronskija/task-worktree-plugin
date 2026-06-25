@@ -54,7 +54,7 @@ intellijPlatform {
             sinceBuild = "251"
         }
         changeNotes = """
-            <h3>0.1.1</h3>
+            <h3>0.1.2</h3>
             <ul>
               <li>Fixed a <code>NoClassDefFoundError</code> that crashed the picker when the
                   GitHub plugin was disabled. The PR-status availability check no longer forces
