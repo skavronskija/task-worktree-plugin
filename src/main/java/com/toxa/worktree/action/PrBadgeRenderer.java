@@ -8,7 +8,7 @@ import com.intellij.util.ui.JBFont;
 import com.intellij.util.ui.JBUI;
 import com.toxa.worktree.action.OpenTaskInWorktreeAction.PickerEntry;
 import com.toxa.worktree.action.OpenTaskInWorktreeAction.WorktreeEntry;
-import com.toxa.worktree.service.PrStatusService.PrStatus;
+import com.toxa.worktree.service.PrStatusSupport.PrStatus;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;

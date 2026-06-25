@@ -29,7 +29,8 @@ import com.intellij.tasks.TaskRepository;
 import com.intellij.ui.popup.list.ListPopupImpl;
 import com.intellij.ui.popup.list.PopupListElementRenderer;
 import com.toxa.worktree.service.PrStatusService;
-import com.toxa.worktree.service.PrStatusService.PrStatus;
+import com.toxa.worktree.service.PrStatusSupport;
+import com.toxa.worktree.service.PrStatusSupport.PrStatus;
 import com.toxa.worktree.service.WorktreeNaming;
 import com.toxa.worktree.service.WorktreeService;
 import com.toxa.worktree.settings.WorktreeSettings;
@@ -228,7 +229,7 @@ public class OpenTaskInWorktreeAction extends AnAction {
                               @NotNull List<WorktreeService.WorktreeInfo> worktrees,
                               @NotNull Map<String, PrStatus> prByBranch,
                               @NotNull ListPopup popup) {
-    if (!PrStatusService.isAvailable()) {
+    if (!PrStatusSupport.isAvailable()) {
       return;
     }
     List<String> branches = new ArrayList<>();
