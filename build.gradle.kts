@@ -46,6 +46,15 @@ intellijPlatform {
             sinceBuild = "251"
         }
         changeNotes = """
+            <h3>0.0.8</h3>
+            <ul>
+              <li>Existing worktrees now show their GitHub pull-request status as an outlined badge
+                  (<code>DRAFT</code>, <code>OPEN</code>, <code>MERGED</code>, <code>CLOSED</code>)
+                  on the right of each row in the picker. Statuses load asynchronously via the
+                  bundled GitHub plugin and are skipped silently when it is disabled or no GitHub
+                  account is configured.</li>
+            </ul>
+
             <h3>0.0.7</h3>
             <ul>
               <li>Refreshed the plugin description to cover base-ref selection and the
