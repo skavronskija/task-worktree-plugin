@@ -50,6 +50,14 @@ intellijPlatform {
             sinceBuild = "251"
         }
         changeNotes = """
+            <h3>0.1.1</h3>
+            <ul>
+              <li>Fixed a <code>NoClassDefFoundError</code> that crashed the picker when the
+                  GitHub plugin was disabled. The PR-status availability check no longer forces
+                  the GitHub-dependent code to load, so the action works again with GitHub off
+                  and still shows PR badges when it is enabled.</li>
+            </ul>
+
             <h3>0.1.0</h3>
             <ul>
               <li>Existing worktrees now show their GitHub pull-request status as an outlined badge

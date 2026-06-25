@@ -22,42 +22,25 @@ import org.jetbrains.plugins.github.util.GHGitRepositoryMapping;
 import org.jetbrains.plugins.github.util.GHHostedRepositoriesManager;
 
 import com.intellij.collaboration.api.data.GraphQLRequestPagination;
+import com.toxa.worktree.service.PrStatusSupport.PrStatus;
 
 /**
  * Looks up the GitHub pull-request state for worktree branches via the bundled GitHub plugin's API.
  *
- * <p>Every reference to {@code org.jetbrains.plugins.github.*} lives in this class, which is only
- * touched after {@link #isAvailable()} confirms the optional GitHub plugin is enabled — so a
- * disabled or absent plugin never triggers a {@code NoClassDefFoundError}. The lookup is silent:
- * any missing prerequisite (not a GitHub repo, no account, no token, API failure) yields an empty
- * result rather than an error.
+ * <p>Every reference to {@code org.jetbrains.plugins.github.*} lives in this class. Because the
+ * GitHub plugin is an optional dependency, its classes — and therefore this class — must only ever
+ * be loaded after {@link PrStatusSupport#isAvailable()} confirms the plugin is enabled; otherwise
+ * loading this class fails with {@code NoClassDefFoundError}. The gate deliberately lives in the
+ * GitHub-free {@link PrStatusSupport} so the check itself never loads this class. The lookup is
+ * silent: any missing prerequisite (not a GitHub repo, no account, no token, API failure) yields an
+ * empty result rather than an error.
  */
 public final class PrStatusService {
 
   private static final Logger LOG = Logger.getInstance(PrStatusService.class);
-  private static final String GH_PROBE_CLASS = "org.jetbrains.plugins.github.util.GHHostedRepositoriesManager";
   private static final int MAX_BRANCHES = 30;
 
-  public enum PrStatus {
-    DRAFT, OPEN, MERGED, CLOSED
-  }
-
   private PrStatusService() {
-  }
-
-  /**
-   * Whether the optional GitHub plugin is enabled. Probes for one of its classes on this plugin's
-   * classloader instead of querying the plugin manager: an optional dependency's classes are only
-   * visible here while the plugin is loaded, so this both avoids unstable plugin-management API and
-   * precisely tracks the enabled state.
-   */
-  public static boolean isAvailable() {
-    try {
-      Class.forName(GH_PROBE_CLASS, false, PrStatusService.class.getClassLoader());
-      return true;
-    } catch (Throwable t) {
-      return false;
-    }
   }
 
   /**
