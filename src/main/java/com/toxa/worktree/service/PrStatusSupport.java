@@ -1,5 +1,9 @@
 package com.toxa.worktree.service;
 
+import java.nio.file.Path;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * GitHub-free gate and shared model for PR-status integration.
  *
@@ -16,6 +20,14 @@ public final class PrStatusSupport {
 
   public enum PrStatus {
     DRAFT, OPEN, MERGED, CLOSED
+  }
+
+  /**
+   * One PR-status lookup request. {@code remoteUrl == null} means the branch belongs to the current
+   * project's repository (coordinates come from the IDE's GitHub mappings); otherwise coordinates
+   * are parsed from the given git remote URL of the worktree's owner repository.
+   */
+  public record BranchLookup(@NotNull Path worktreePath, @NotNull String branch, @Nullable String remoteUrl) {
   }
 
   private PrStatusSupport() {

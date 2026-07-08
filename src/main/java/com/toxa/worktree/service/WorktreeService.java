@@ -180,6 +180,52 @@ public final class WorktreeService {
     return linkedLayout ? mainGitDir.getParent() : null;
   }
 
+  /**
+   * Reads the URL of the {@code origin} remote (or the first remote if there is no origin) from
+   * {@code <repoRoot>/.git/config}. Returns {@code null} when the repo has no remotes. Pure file
+   * I/O so it is safe for repositories that are not open in the IDE.
+   */
+  @Nullable
+  public static String readRemoteUrl(@NotNull Path repoRoot) {
+    Path config = repoRoot.resolve(GIT_DIR).resolve("config");
+    if (!Files.isRegularFile(config)) {
+      return null;
+    }
+    try {
+      String currentRemote = null;
+      String firstUrl = null;
+      for (String rawLine : Files.readAllLines(config)) {
+        String line = rawLine.strip();
+        if (line.startsWith("[")) {
+          currentRemote = null;
+          if (line.startsWith("[remote ")) {
+            int open = line.indexOf('"');
+            int close = line.lastIndexOf('"');
+            if (open >= 0 && close > open) {
+              currentRemote = line.substring(open + 1, close);
+            }
+          }
+        } else if (currentRemote != null && line.startsWith("url")) {
+          int eq = line.indexOf('=');
+          if (eq < 0) {
+            continue;
+          }
+          String url = line.substring(eq + 1).strip();
+          if ("origin".equals(currentRemote)) {
+            return url;
+          }
+          if (firstUrl == null) {
+            firstUrl = url;
+          }
+        }
+      }
+      return firstUrl;
+    } catch (IOException e) {
+      LOG.debug("Failed to read remote url from " + config, e);
+      return null;
+    }
+  }
+
   @NotNull
   private static String readHeadBranch(@NotNull Path gitdir) throws IOException {
     Path head = gitdir.resolve("HEAD");

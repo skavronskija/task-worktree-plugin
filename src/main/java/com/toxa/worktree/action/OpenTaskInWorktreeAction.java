@@ -97,7 +97,7 @@ public class OpenTaskInWorktreeAction extends AnAction {
                             @NotNull List<WorktreeService.WorktreeInfo> repoWorktrees,
                             @NotNull List<WorktreeService.ExternalWorktree> externalWorktrees,
                             @NotNull List<TaskEntry> taskEntries,
-                            @NotNull Map<String, PrStatus> prByBranch,
+                            @NotNull Map<Path, PrStatus> prByPath,
                             @NotNull AtomicReference<ListPopup> currentPopup) {
   }
 
@@ -287,7 +287,7 @@ public class OpenTaskInWorktreeAction extends AnAction {
     ListPopup popup = JBPopupFactory.getInstance().createListPopup(
         project,
         step,
-        base -> new PrBadgeRenderer(((PopupListElementRenderer<?>) base).getPopup(), data.prByBranch()));
+        base -> new PrBadgeRenderer(((PopupListElementRenderer<?>) base).getPopup(), data.prByPath()));
     data.currentPopup().set(popup);
 
     installShowAllCheckbox(data, showAll, popup);
@@ -355,22 +355,35 @@ public class OpenTaskInWorktreeAction extends AnAction {
     if (!PrStatusSupport.isAvailable()) {
       return;
     }
-    List<String> branches = new ArrayList<>();
-    for (WorktreeService.WorktreeInfo w : data.repoWorktrees()) {
-      if (!w.main() && !w.branch().isEmpty()) {
-        branches.add(w.branch());
-      }
-    }
-    if (branches.isEmpty()) {
+    boolean hasCandidates =
+        data.repoWorktrees().stream().anyMatch(w -> !w.main() && !w.branch().isEmpty())
+        || data.externalWorktrees().stream().anyMatch(w -> !w.branch().isEmpty() && w.ownerRepoRoot() != null);
+    if (!hasCandidates) {
       return;
     }
     ApplicationManager.getApplication().executeOnPooledThread(() -> {
-      Map<String, PrStatus> statuses = PrStatusService.fetch(data.project(), data.gitRepo(), branches);
+      // Built on the pooled thread: external lookups read the owner repo's .git/config from disk.
+      List<PrStatusSupport.BranchLookup> lookups = new ArrayList<>();
+      for (WorktreeService.WorktreeInfo w : data.repoWorktrees()) {
+        if (!w.main() && !w.branch().isEmpty()) {
+          lookups.add(new PrStatusSupport.BranchLookup(w.path(), w.branch(), null));
+        }
+      }
+      for (WorktreeService.ExternalWorktree w : data.externalWorktrees()) {
+        if (w.branch().isEmpty() || w.ownerRepoRoot() == null) {
+          continue;
+        }
+        String remoteUrl = WorktreeService.readRemoteUrl(w.ownerRepoRoot());
+        if (remoteUrl != null) {
+          lookups.add(new PrStatusSupport.BranchLookup(w.path(), w.branch(), remoteUrl));
+        }
+      }
+      Map<Path, PrStatus> statuses = PrStatusService.fetch(data.project(), data.gitRepo(), lookups);
       if (statuses.isEmpty()) {
         return;
       }
       ApplicationManager.getApplication().invokeLater(() -> {
-        data.prByBranch().putAll(statuses);
+        data.prByPath().putAll(statuses);
         ListPopup current = data.currentPopup().get();
         if (current != null && !current.isDisposed() && current instanceof ListPopupImpl listPopup) {
           listPopup.getList().repaint();

@@ -6,6 +6,7 @@ import com.intellij.ui.popup.list.ListPopupImpl;
 import com.intellij.ui.popup.list.PopupListElementRenderer;
 import com.intellij.util.ui.JBFont;
 import com.intellij.util.ui.JBUI;
+import com.toxa.worktree.action.OpenTaskInWorktreeAction.ExternalWorktreeEntry;
 import com.toxa.worktree.action.OpenTaskInWorktreeAction.PickerEntry;
 import com.toxa.worktree.action.OpenTaskInWorktreeAction.WorktreeEntry;
 import com.toxa.worktree.service.PrStatusSupport.PrStatus;
@@ -13,6 +14,7 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
+import java.nio.file.Path;
 import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
@@ -37,12 +39,12 @@ final class PrBadgeRenderer extends PopupListElementRenderer<PickerEntry> {
   private static final JBColor DRAFT_COLOR = new JBColor(0x6E7781, 0x8B949E);
   private static final JBColor CLOSED_COLOR = new JBColor(0xCF222E, 0xF85149);
 
-  private final Map<String, PrStatus> statusByBranch;
+  private final Map<Path, PrStatus> statusByPath;
   private JLabel badgeLabel;
 
-  PrBadgeRenderer(@NotNull ListPopupImpl popup, @NotNull Map<String, PrStatus> statusByBranch) {
+  PrBadgeRenderer(@NotNull ListPopupImpl popup, @NotNull Map<Path, PrStatus> statusByPath) {
     super(popup);
-    this.statusByBranch = statusByBranch;
+    this.statusByPath = statusByPath;
   }
 
   @Override
@@ -69,8 +71,11 @@ final class PrBadgeRenderer extends PopupListElementRenderer<PickerEntry> {
   }
 
   private PrStatus statusFor(PickerEntry value) {
-    if (value instanceof WorktreeEntry w && !w.main() && !w.branch().isEmpty()) {
-      return statusByBranch.get(w.branch());
+    if (value instanceof WorktreeEntry w && !w.main()) {
+      return statusByPath.get(w.path());
+    }
+    if (value instanceof ExternalWorktreeEntry w) {
+      return statusByPath.get(w.path());
     }
     return null;
   }
