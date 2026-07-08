@@ -54,6 +54,16 @@ intellijPlatform {
             sinceBuild = "251"
         }
         changeNotes = """
+            <h3>0.1.3</h3>
+            <ul>
+              <li>New <strong>Show all worktrees</strong> checkbox in the picker popup: when
+                  checked, the list also includes worktrees of <em>other</em> repositories found
+                  in the configured worktrees directory, labeled with their owning repo. Pressing
+                  the action's shortcut again while the popup is open toggles the checkbox.</li>
+              <li>External worktrees can be opened and removed (removal runs against their own
+                  repository); full clones living in the worktrees directory are open-only.</li>
+            </ul>
+
             <h3>0.1.2</h3>
             <ul>
               <li>Fixed a <code>NoClassDefFoundError</code> that crashed the picker when the
