@@ -12,8 +12,10 @@ import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.keymap.KeymapUtil;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
+import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
@@ -26,8 +28,11 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.tasks.Task;
 import com.intellij.tasks.TaskManager;
 import com.intellij.tasks.TaskRepository;
+import com.intellij.ui.JBColor;
+import com.intellij.ui.awt.RelativePoint;
 import com.intellij.ui.popup.list.ListPopupImpl;
 import com.intellij.ui.popup.list.PopupListElementRenderer;
+import com.intellij.util.ui.JBUI;
 import com.toxa.worktree.service.PrStatusService;
 import com.toxa.worktree.service.PrStatusSupport;
 import com.toxa.worktree.service.PrStatusSupport.PrStatus;
@@ -36,16 +41,23 @@ import com.toxa.worktree.service.WorktreeService;
 import com.toxa.worktree.settings.WorktreeSettings;
 import git4idea.repo.GitRepository;
 import git4idea.repo.GitRepositoryManager;
+import java.awt.BorderLayout;
+import java.awt.Point;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.swing.Icon;
+import javax.swing.JCheckBox;
+import javax.swing.JPanel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -63,10 +75,24 @@ public class OpenTaskInWorktreeAction extends AnAction {
   record WorktreeEntry(@NotNull Path path, @NotNull String branch, boolean main) implements PickerEntry {
   }
 
+  record ExternalWorktreeEntry(@NotNull Path path, @NotNull String branch,
+                               @Nullable Path ownerRepoRoot) implements PickerEntry {
+  }
+
   record CustomEntry() implements PickerEntry {
   }
 
   record TaskEntry(@NotNull Task task, @Nullable String repoLabel) implements PickerEntry {
+  }
+
+  /** Everything loaded up front for one picker session, so toggling "show all" rebuilds instantly. */
+  private record PickerData(@NotNull Project project,
+                            @NotNull GitRepository gitRepo,
+                            @NotNull List<WorktreeService.WorktreeInfo> repoWorktrees,
+                            @NotNull List<WorktreeService.ExternalWorktree> externalWorktrees,
+                            @NotNull List<TaskEntry> taskEntries,
+                            @NotNull Map<String, PrStatus> prByBranch,
+                            @NotNull AtomicReference<ListPopup> currentPopup) {
   }
 
   @Override
@@ -98,13 +124,36 @@ public class OpenTaskInWorktreeAction extends AnAction {
           @Override
           public void run(@NotNull ProgressIndicator indicator) {
             List<WorktreeService.WorktreeInfo> worktrees = WorktreeService.listWorktrees(project, gitRepo);
+            List<WorktreeService.ExternalWorktree> external = scanExternal(gitRepo, worktrees);
             List<TaskEntry> taskEntries = fetchAllTasks(project, indicator);
+            PickerData data = new PickerData(project, gitRepo, worktrees, external, taskEntries,
+                                             new ConcurrentHashMap<>(), new AtomicReference<>());
             ApplicationManager.getApplication().invokeLater(
-                () -> showPicker(project, gitRepo, worktrees, taskEntries),
+                () -> {
+                  showPicker(data, false, null);
+                  loadPrStatuses(data);
+                },
                 project.getDisposed()
             );
           }
         });
+  }
+
+  @NotNull
+  private static List<WorktreeService.ExternalWorktree> scanExternal(
+      @NotNull GitRepository gitRepo,
+      @NotNull List<WorktreeService.WorktreeInfo> repoWorktrees) {
+    Path repoRoot = Paths.get(gitRepo.getRoot().getPath()).toAbsolutePath().normalize();
+    Path repoParent = repoRoot.getParent();
+    if (repoParent == null) {
+      return List.of();
+    }
+    Set<Path> exclude = new HashSet<>();
+    exclude.add(repoRoot);
+    for (WorktreeService.WorktreeInfo w : repoWorktrees) {
+      exclude.add(w.path());
+    }
+    return WorktreeService.scanWorktreesDirectory(resolveWorktreesParent(repoParent), exclude);
   }
 
   @NotNull
@@ -128,17 +177,23 @@ public class OpenTaskInWorktreeAction extends AnAction {
     return result;
   }
 
-  private void showPicker(@NotNull Project project,
-                          @NotNull GitRepository gitRepo,
-                          @NotNull List<WorktreeService.WorktreeInfo> worktrees,
-                          @NotNull List<TaskEntry> taskEntries) {
+  private void showPicker(@NotNull PickerData data, boolean showAll, @Nullable Point location) {
+    Project project = data.project();
+    GitRepository gitRepo = data.gitRepo();
+    Path repoRoot = Paths.get(gitRepo.getRoot().getPath()).toAbsolutePath().normalize();
+
     List<PickerEntry> entries = new ArrayList<>();
-    for (WorktreeService.WorktreeInfo w : worktrees) {
+    for (WorktreeService.WorktreeInfo w : data.repoWorktrees()) {
       entries.add(new WorktreeEntry(w.path(), w.branch(), w.main()));
+    }
+    if (showAll) {
+      for (WorktreeService.ExternalWorktree w : data.externalWorktrees()) {
+        entries.add(new ExternalWorktreeEntry(w.path(), w.branch(), w.ownerRepoRoot()));
+      }
     }
     int tasksSectionStart = entries.size();
     entries.add(new CustomEntry());
-    entries.addAll(taskEntries);
+    entries.addAll(data.taskEntries());
 
     BaseListPopupStep<PickerEntry> step = new BaseListPopupStep<>("Select Task or Worktree", entries) {
       @Override
@@ -148,7 +203,7 @@ public class OpenTaskInWorktreeAction extends AnAction {
 
       @Override
       public boolean hasSubstep(PickerEntry value) {
-        return value instanceof WorktreeEntry;
+        return value instanceof WorktreeEntry || value instanceof ExternalWorktreeEntry;
       }
 
       @Override
@@ -157,6 +212,13 @@ public class OpenTaskInWorktreeAction extends AnAction {
           String name = w.path().getFileName() == null ? w.path().toString() : w.path().getFileName().toString();
           String base = w.branch().isEmpty() ? name : name + "  (" + w.branch() + ")";
           return w.main() ? base + "  [main]" : base;
+        }
+        if (value instanceof ExternalWorktreeEntry w) {
+          String name = w.path().getFileName() == null ? w.path().toString() : w.path().getFileName().toString();
+          String base = w.branch().isEmpty() ? name : name + "  (" + w.branch() + ")";
+          Path owner = w.ownerRepoRoot();
+          boolean linkedWorktree = owner != null && !owner.equals(w.path()) && owner.getFileName() != null;
+          return linkedWorktree ? base + "  [" + owner.getFileName() + "]" : base;
         }
         if (value instanceof CustomEntry) {
           return "Custom worktree…";
@@ -170,7 +232,7 @@ public class OpenTaskInWorktreeAction extends AnAction {
 
       @Override
       public Icon getIconFor(PickerEntry value) {
-        if (value instanceof WorktreeEntry) {
+        if (value instanceof WorktreeEntry || value instanceof ExternalWorktreeEntry) {
           return AllIcons.Nodes.Folder;
         }
         if (value instanceof CustomEntry) {
@@ -185,7 +247,7 @@ public class OpenTaskInWorktreeAction extends AnAction {
       @Override
       public ListSeparator getSeparatorAbove(PickerEntry value) {
         int idx = entries.indexOf(value);
-        if (idx == 0 && value instanceof WorktreeEntry) {
+        if (idx == 0 && (value instanceof WorktreeEntry || value instanceof ExternalWorktreeEntry)) {
           return new ListSeparator("Existing Worktrees");
         }
         if (idx == tasksSectionStart) {
@@ -197,7 +259,14 @@ public class OpenTaskInWorktreeAction extends AnAction {
       @Override
       public PopupStep<?> onChosen(PickerEntry value, boolean finalChoice) {
         if (value instanceof WorktreeEntry w) {
-          return worktreeActionStep(project, gitRepo, w);
+          Path removalWorkDir = w.main() ? null : repoRoot;
+          return worktreeActionStep(project, w.path(), w.branch(), removalWorkDir, gitRepo);
+        }
+        if (value instanceof ExternalWorktreeEntry w) {
+          Path owner = w.ownerRepoRoot();
+          // A full clone (owner == the folder itself) is a main working tree — git cannot remove it.
+          Path removalWorkDir = owner != null && !owner.equals(w.path()) ? owner : null;
+          return worktreeActionStep(project, w.path(), w.branch(), removalWorkDir, null);
         }
         if (value instanceof CustomEntry) {
           return doFinalStep(() -> createCustomWorktree(project, gitRepo));
@@ -209,14 +278,46 @@ public class OpenTaskInWorktreeAction extends AnAction {
       }
     };
 
-    Map<String, PrStatus> prByBranch = new ConcurrentHashMap<>();
     ListPopup popup = JBPopupFactory.getInstance().createListPopup(
         project,
         step,
-        base -> new PrBadgeRenderer(((PopupListElementRenderer<?>) base).getPopup(), prByBranch));
-    popup.showCenteredInCurrentWindow(project);
+        base -> new PrBadgeRenderer(((PopupListElementRenderer<?>) base).getPopup(), data.prByBranch()));
+    data.currentPopup().set(popup);
 
-    loadPrStatuses(project, gitRepo, worktrees, prByBranch, popup);
+    installShowAllFooter(data, showAll, popup);
+    DumbAwareAction.create(e -> toggleShowAll(data, showAll, popup))
+                   .registerCustomShortcutSet(getShortcutSet(), popup.getContent(), popup);
+
+    if (location != null) {
+      popup.show(RelativePoint.fromScreen(location));
+    } else {
+      popup.showCenteredInCurrentWindow(project);
+    }
+  }
+
+  private void installShowAllFooter(@NotNull PickerData data, boolean showAll, @NotNull ListPopup popup) {
+    JCheckBox showAllBox = new JCheckBox("Show all worktrees", showAll);
+    // The list must keep keyboard focus so navigation and speed search stay usable.
+    showAllBox.setFocusable(false);
+    showAllBox.setOpaque(false);
+    showAllBox.setBorder(JBUI.Borders.empty(4, 10));
+    String shortcut = KeymapUtil.getFirstKeyboardShortcutText(this);
+    if (!shortcut.isEmpty()) {
+      showAllBox.setToolTipText("Toggle with " + shortcut);
+    }
+    showAllBox.addActionListener(e -> toggleShowAll(data, showAll, popup));
+
+    JPanel footer = new JPanel(new BorderLayout());
+    footer.setOpaque(false);
+    footer.setBorder(JBUI.Borders.customLineTop(JBColor.border()));
+    footer.add(showAllBox, BorderLayout.WEST);
+    popup.getContent().add(footer, BorderLayout.SOUTH);
+  }
+
+  private void toggleShowAll(@NotNull PickerData data, boolean currentShowAll, @NotNull ListPopup popup) {
+    Point location = popup.isVisible() ? popup.getLocationOnScreen() : null;
+    popup.cancel();
+    showPicker(data, !currentShowAll, location);
   }
 
   /**
@@ -224,16 +325,12 @@ public class OpenTaskInWorktreeAction extends AnAction {
    * and repaints the popup. The renderer reserves a fixed badge slot up front, so the popup is
    * already sized for badges and a repaint is enough to reveal them.
    */
-  private void loadPrStatuses(@NotNull Project project,
-                              @NotNull GitRepository gitRepo,
-                              @NotNull List<WorktreeService.WorktreeInfo> worktrees,
-                              @NotNull Map<String, PrStatus> prByBranch,
-                              @NotNull ListPopup popup) {
+  private void loadPrStatuses(@NotNull PickerData data) {
     if (!PrStatusSupport.isAvailable()) {
       return;
     }
     List<String> branches = new ArrayList<>();
-    for (WorktreeService.WorktreeInfo w : worktrees) {
+    for (WorktreeService.WorktreeInfo w : data.repoWorktrees()) {
       if (!w.main() && !w.branch().isEmpty()) {
         branches.add(w.branch());
       }
@@ -242,26 +339,33 @@ public class OpenTaskInWorktreeAction extends AnAction {
       return;
     }
     ApplicationManager.getApplication().executeOnPooledThread(() -> {
-      Map<String, PrStatus> statuses = PrStatusService.fetch(project, gitRepo, branches);
+      Map<String, PrStatus> statuses = PrStatusService.fetch(data.project(), data.gitRepo(), branches);
       if (statuses.isEmpty()) {
         return;
       }
       ApplicationManager.getApplication().invokeLater(() -> {
-        prByBranch.putAll(statuses);
-        if (!popup.isDisposed() && popup instanceof ListPopupImpl listPopup) {
+        data.prByBranch().putAll(statuses);
+        ListPopup current = data.currentPopup().get();
+        if (current != null && !current.isDisposed() && current instanceof ListPopupImpl listPopup) {
           listPopup.getList().repaint();
         }
-      }, project.getDisposed());
+      }, data.project().getDisposed());
     });
   }
 
+  /**
+   * Open/Remove sub-step for a worktree row. {@code removalWorkDir} is where {@code git worktree
+   * remove} must run — the current repo root for own worktrees, the owning repo root for external
+   * ones; {@code null} means removal is not possible (main worktree, full clone, unknown owner) and
+   * only Open is offered. {@code repoToUpdate} is non-null only for the current repo's worktrees.
+   */
   private PopupStep<?> worktreeActionStep(@NotNull Project project,
-                                          @NotNull GitRepository gitRepo,
-                                          @NotNull WorktreeEntry worktree) {
-    String title = worktree.path().getFileName() == null
-                   ? worktree.path().toString()
-                   : worktree.path().getFileName().toString();
-    List<String> actions = worktree.main() ? List.of(ACTION_OPEN) : List.of(ACTION_OPEN, ACTION_REMOVE);
+                                          @NotNull Path path,
+                                          @NotNull String branch,
+                                          @Nullable Path removalWorkDir,
+                                          @Nullable GitRepository repoToUpdate) {
+    String title = path.getFileName() == null ? path.toString() : path.getFileName().toString();
+    List<String> actions = removalWorkDir == null ? List.of(ACTION_OPEN) : List.of(ACTION_OPEN, ACTION_REMOVE);
     return new BaseListPopupStep<>(title, actions) {
       @Override
       public Icon getIconFor(String value) {
@@ -277,10 +381,10 @@ public class OpenTaskInWorktreeAction extends AnAction {
       @Override
       public PopupStep<?> onChosen(String selectedValue, boolean finalChoice) {
         if (ACTION_OPEN.equals(selectedValue)) {
-          return doFinalStep(() -> openWorktree(project, worktree.path()));
+          return doFinalStep(() -> openWorktree(project, path));
         }
-        if (ACTION_REMOVE.equals(selectedValue)) {
-          return doFinalStep(() -> confirmAndRemoveWorktree(project, gitRepo, worktree));
+        if (ACTION_REMOVE.equals(selectedValue) && removalWorkDir != null) {
+          return doFinalStep(() -> confirmAndRemoveWorktree(project, removalWorkDir, repoToUpdate, path, branch));
         }
         return FINAL_CHOICE;
       }
@@ -315,11 +419,13 @@ public class OpenTaskInWorktreeAction extends AnAction {
   }
 
   private void confirmAndRemoveWorktree(@NotNull Project project,
-                                        @NotNull GitRepository gitRepo,
-                                        @NotNull WorktreeEntry worktree) {
+                                        @NotNull Path removalWorkDir,
+                                        @Nullable GitRepository repoToUpdate,
+                                        @NotNull Path path,
+                                        @NotNull String branch) {
     int answer = Messages.showYesNoDialog(
         project,
-        "Remove worktree at " + worktree.path() + "?\n\nThe branch '" + worktree.branch()
+        "Remove worktree at " + path + "?\n\nThe branch '" + branch
             + "' will be preserved. This deletes the worktree directory.",
         "Remove Worktree",
         Messages.getQuestionIcon()
@@ -331,7 +437,8 @@ public class OpenTaskInWorktreeAction extends AnAction {
         new com.intellij.openapi.progress.Task.Backgroundable(project, "Removing worktree", true) {
           @Override
           public void run(@NotNull ProgressIndicator indicator) {
-            WorktreeService.Result result = WorktreeService.removeWorktree(project, gitRepo, worktree.path(), false);
+            WorktreeService.Result result =
+                WorktreeService.removeWorktree(project, removalWorkDir, repoToUpdate, path, false);
             if (!result.success()) {
               String detail = result.stderr().isBlank() ? result.stdout() : result.stderr();
               boolean offerForce = detail.toLowerCase().contains("use --force")
@@ -339,7 +446,7 @@ public class OpenTaskInWorktreeAction extends AnAction {
                                    || detail.toLowerCase().contains("locked");
               if (offerForce) {
                 ApplicationManager.getApplication().invokeLater(
-                    () -> retryRemoveWithForce(project, gitRepo, worktree, detail),
+                    () -> retryRemoveWithForce(project, removalWorkDir, repoToUpdate, path, detail),
                     project.getDisposed()
                 );
               } else {
@@ -347,14 +454,15 @@ public class OpenTaskInWorktreeAction extends AnAction {
               }
               return;
             }
-            notifyInfo(project, "Removed worktree " + worktree.path().getFileName());
+            notifyInfo(project, "Removed worktree " + path.getFileName());
           }
         });
   }
 
   private void retryRemoveWithForce(@NotNull Project project,
-                                    @NotNull GitRepository gitRepo,
-                                    @NotNull WorktreeEntry worktree,
+                                    @NotNull Path removalWorkDir,
+                                    @Nullable GitRepository repoToUpdate,
+                                    @NotNull Path path,
                                     @NotNull String reason) {
     int answer = Messages.showYesNoDialog(
         project,
@@ -369,13 +477,14 @@ public class OpenTaskInWorktreeAction extends AnAction {
         new com.intellij.openapi.progress.Task.Backgroundable(project, "Force-removing worktree", true) {
           @Override
           public void run(@NotNull ProgressIndicator indicator) {
-            WorktreeService.Result result = WorktreeService.removeWorktree(project, gitRepo, worktree.path(), true);
+            WorktreeService.Result result =
+                WorktreeService.removeWorktree(project, removalWorkDir, repoToUpdate, path, true);
             if (!result.success()) {
               String detail = result.stderr().isBlank() ? result.stdout() : result.stderr();
               notifyError(project, "git worktree remove --force failed (exit " + result.exitCode() + "): " + detail.trim());
               return;
             }
-            notifyInfo(project, "Force-removed worktree " + worktree.path().getFileName());
+            notifyInfo(project, "Force-removed worktree " + path.getFileName());
           }
         });
   }
