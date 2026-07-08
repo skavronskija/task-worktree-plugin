@@ -28,11 +28,14 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.tasks.Task;
 import com.intellij.tasks.TaskManager;
 import com.intellij.tasks.TaskRepository;
+import com.intellij.ui.ActiveComponent;
+import com.intellij.ui.CaptionPanel;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.awt.RelativePoint;
 import com.intellij.ui.popup.list.ListPopupImpl;
 import com.intellij.ui.popup.list.PopupListElementRenderer;
 import com.intellij.util.ui.JBUI;
+import com.intellij.util.ui.UIUtil;
 import com.toxa.worktree.service.PrStatusService;
 import com.toxa.worktree.service.PrStatusSupport;
 import com.toxa.worktree.service.PrStatusSupport.PrStatus;
@@ -57,7 +60,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.swing.Icon;
 import javax.swing.JCheckBox;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -284,7 +290,7 @@ public class OpenTaskInWorktreeAction extends AnAction {
         base -> new PrBadgeRenderer(((PopupListElementRenderer<?>) base).getPopup(), data.prByBranch()));
     data.currentPopup().set(popup);
 
-    installShowAllFooter(data, showAll, popup);
+    installShowAllCheckbox(data, showAll, popup);
     DumbAwareAction.create(e -> toggleShowAll(data, showAll, popup))
                    .registerCustomShortcutSet(getShortcutSet(), popup.getContent(), popup);
 
@@ -295,18 +301,38 @@ public class OpenTaskInWorktreeAction extends AnAction {
     }
   }
 
-  private void installShowAllFooter(@NotNull PickerData data, boolean showAll, @NotNull ListPopup popup) {
+  /**
+   * Puts the "Show all worktrees" checkbox into the popup header: title left-aligned, checkbox
+   * right-aligned in the caption's EAST button slot. Falls back to a footer below the list if the
+   * platform's title panel cannot be located.
+   */
+  private void installShowAllCheckbox(@NotNull PickerData data, boolean showAll, @NotNull ListPopup popup) {
     JCheckBox showAllBox = new JCheckBox("Show all worktrees", showAll);
     // The list must keep keyboard focus so navigation and speed search stay usable.
     showAllBox.setFocusable(false);
     showAllBox.setOpaque(false);
-    showAllBox.setBorder(JBUI.Borders.empty(4, 10));
     String shortcut = KeymapUtil.getFirstKeyboardShortcutText(this);
     if (!shortcut.isEmpty()) {
       showAllBox.setToolTipText("Toggle with " + shortcut);
     }
     showAllBox.addActionListener(e -> toggleShowAll(data, showAll, popup));
 
+    CaptionPanel caption = UIUtil.findComponentOfType(popup.getContent(), CaptionPanel.class);
+    if (caption != null) {
+      JLabel titleLabel = UIUtil.findComponentOfType(caption, JLabel.class);
+      if (titleLabel != null) {
+        titleLabel.setHorizontalAlignment(SwingConstants.LEFT);
+      }
+      caption.setButtonComponent(new ActiveComponent.Adapter() {
+        @Override
+        public @NotNull JComponent getComponent() {
+          return showAllBox;
+        }
+      }, JBUI.Borders.emptyRight(4));
+      return;
+    }
+
+    showAllBox.setBorder(JBUI.Borders.empty(4, 10));
     JPanel footer = new JPanel(new BorderLayout());
     footer.setOpaque(false);
     footer.setBorder(JBUI.Borders.customLineTop(JBColor.border()));
