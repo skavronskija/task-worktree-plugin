@@ -33,13 +33,17 @@ dependencies {
 intellijPlatform {
     pluginVerification {
         ides {
-            // 2026.1.3 and 2026.2 EAP have no standalone installers yet, only intellij-repository
+            // 2026.1.3 and 2026.2 have no standalone installers yet, only intellij-repository
             // archives, so useInstaller = false makes the verifier download the ZIP distribution.
             create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2025.1.4.1")
             create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2026.1.3") {
                 useInstaller.set(false)
             }
-            create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "262.8377.35-EAP-CANDIDATE") {
+            // 262 unbundled com.intellij.tasks and only republishes it for the commercial IDEs
+            // (IDEA Ultimate, etc.), not free Community. com.intellij.tasks is a mandatory
+            // dependency, so on 2026.2 the plugin targets Ultimate — verify there, where the
+            // dependency resolves from the Marketplace. (Community-without-tasks is a separate task.)
+            create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaUltimate, "2026.2") {
                 useInstaller.set(false)
             }
         }
@@ -52,8 +56,16 @@ intellijPlatform {
     pluginConfiguration {
         ideaVersion {
             sinceBuild = "251"
+            untilBuild = "262.*"
         }
         changeNotes = """
+            <h3>0.1.4</h3>
+            <ul>
+              <li>Compatibility with IntelliJ IDEA 2026.2 (build 262). Task Management, which this
+                  plugin requires, was unbundled from the IDE in 2026.2 — it now installs
+                  automatically from the Marketplace alongside this plugin.</li>
+            </ul>
+
             <h3>0.1.3</h3>
             <ul>
               <li>New <strong>Show all worktrees</strong> checkbox in the picker popup: when
