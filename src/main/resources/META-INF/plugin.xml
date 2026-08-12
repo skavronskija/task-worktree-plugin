@@ -1,5 +1,5 @@
 <idea-plugin>
-  <version>0.1.4</version>
+  <version>0.1.5</version>
   <id>com.toxa.task-worktree-plugin</id>
 
   <name>Task Worktree</name>
@@ -20,8 +20,10 @@
       <li>Create a new branch from any chosen <strong>base</strong> ref (local or remote) —
           branch a worktree off e.g. <code>main</code> without switching to the main
           worktree first. Picking a remote branch creates a local tracking branch.</li>
-      <li>Open or remove existing worktrees inline. The main repo worktree is protected
-          from deletion.</li>
+      <li>Open or remove existing worktrees inline. Select several at once
+          (<strong>Shift+Arrows</strong>, <strong>Cmd/Ctrl+Click</strong>) and remove them
+          in one pass, with a single confirmation and a batched force retry for any worktree
+          git refuses. The main repo worktree is protected from deletion.</li>
       <li>Optionally copies the source repo's <code>.idea/</code> into each new worktree
           so the IDE opens with project settings intact.</li>
       <li>Copy additional un-tracked files (e.g. <code>.env</code>, <code>config/**</code>)
