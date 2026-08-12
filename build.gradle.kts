@@ -59,6 +59,20 @@ intellijPlatform {
             untilBuild = "262.*"
         }
         changeNotes = """
+            <h3>0.1.5</h3>
+            <ul>
+              <li>Remove several worktrees in one pass. Select multiple rows in the picker with
+                  <strong>Shift+Arrows</strong> or <strong>Cmd/Ctrl+Click</strong>, then press the
+                  right arrow for a <strong>Remove</strong> menu. A single confirmation lists
+                  everything that will be deleted.</li>
+              <li>Worktrees git refuses to remove (modified or untracked files, locked) are
+                  collected into one batched <code>--force</code> retry prompt instead of a dialog
+                  each, and the result arrives as a single summary notification.</li>
+              <li>Rows that cannot be removed — the main worktree, full clones, task rows — are
+                  ignored inside a multi-row selection, so an overshot Shift+Arrow does not block
+                  the removal. Selecting a single row behaves exactly as before.</li>
+            </ul>
+
             <h3>0.1.4</h3>
             <ul>
               <li>Compatibility with IntelliJ IDEA 2026.2 (build 262). Task Management, which this
