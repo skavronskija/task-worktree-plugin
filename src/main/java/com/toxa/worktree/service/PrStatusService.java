@@ -1,6 +1,7 @@
 package com.toxa.worktree.service;
 
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.progress.EmptyProgressIndicator;
 import com.intellij.openapi.project.Project;
 import git4idea.remote.hosting.GitHostingUrlUtil;
 import git4idea.repo.GitRepository;
@@ -189,6 +190,7 @@ public final class PrStatusService {
     try {
       String query = "repo:" + ownerName + " is:pr head:" + branch;
       GHGQLSearchQueryResponse<GHPullRequestShort> response = executor.execute(
+          new EmptyProgressIndicator(),
           GHGQLRequests.PullRequest.INSTANCE.search(server, query, GraphQLRequestPagination.Companion.getDEFAULT()));
       java.util.List<GHPullRequestShort> nodes = response.getNodes();
       if (nodes.isEmpty()) {

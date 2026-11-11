@@ -46,6 +46,9 @@ intellijPlatform {
             create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaUltimate, "2026.2") {
                 useInstaller.set(false)
             }
+            create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaUltimate, "2026.3") {
+                useInstaller.set(false)
+            }
         }
     }
     publishing {
@@ -56,9 +59,14 @@ intellijPlatform {
     pluginConfiguration {
         ideaVersion {
             sinceBuild = "251"
-            untilBuild = "262.*"
+            untilBuild = "263.*"
         }
         changeNotes = """
+            <h3>0.1.6</h3>
+            <ul>
+              <li>Compatibility with IntelliJ IDEA 2026.3 (build 263).</li>
+            </ul>
+
             <h3>0.1.5</h3>
             <ul>
               <li>Remove several worktrees in one pass. Select multiple rows in the picker with
