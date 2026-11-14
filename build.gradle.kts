@@ -62,6 +62,12 @@ intellijPlatform {
             untilBuild = "263.*"
         }
         changeNotes = """
+            <h3>0.1.7</h3>
+            <ul>
+              <li>No longer uses internal GitHub plugin API to read the GitHub token for PR
+                  status badges.</li>
+            </ul>
+
             <h3>0.1.6</h3>
             <ul>
               <li>Compatibility with IntelliJ IDEA 2026.3 (build 263).</li>

@@ -1,6 +1,8 @@
 package com.toxa.worktree.service;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.progress.CoroutinesKt;
 import com.intellij.openapi.progress.EmptyProgressIndicator;
 import com.intellij.openapi.project.Project;
 import git4idea.remote.hosting.GitHostingUrlUtil;
@@ -22,8 +24,8 @@ import org.jetbrains.plugins.github.api.data.graphql.query.GHGQLSearchQueryRespo
 import org.jetbrains.plugins.github.api.data.pullrequest.GHPullRequestShort;
 import org.jetbrains.plugins.github.api.data.pullrequest.GHPullRequestState;
 import org.jetbrains.plugins.github.authentication.GHAccountsUtil;
+import org.jetbrains.plugins.github.authentication.accounts.GHAccountManager;
 import org.jetbrains.plugins.github.authentication.accounts.GithubAccount;
-import org.jetbrains.plugins.github.util.GHCompatibilityUtil;
 import org.jetbrains.plugins.github.util.GHGitRepositoryMapping;
 import org.jetbrains.plugins.github.util.GHHostedRepositoriesManager;
 import org.jetbrains.plugins.github.util.GithubUrlUtil;
@@ -170,17 +172,13 @@ public final class PrStatusService {
       LOG.info("PR status lookup skipped: no GitHub accounts configured in this IDE");
       return null;
     }
-    GithubAccount match = null;
-    for (GithubAccount account : accounts) {
-      if (server.equals(account.getServer())) {
-        match = account;
-        break;
-      }
-    }
-    if (match == null) {
-      match = accounts.iterator().next();
-    }
-    return GHCompatibilityUtil.getOrRequestToken(match, project);
+    GithubAccount account = accounts.stream()
+        .filter(candidate -> server.equals(candidate.getServer()))
+        .findFirst()
+        .orElseGet(() -> accounts.iterator().next());
+    GHAccountManager accountManager = ApplicationManager.getApplication().getService(GHAccountManager.class);
+    return CoroutinesKt.runBlockingMaybeCancellable(
+        (scope, continuation) -> accountManager.findCredentials(account, continuation));
   }
 
   private static PrStatus lookupBranch(@NotNull GithubApiRequestExecutor executor,
