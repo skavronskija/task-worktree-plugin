@@ -20,11 +20,23 @@ repositories {
     }
 }
 
+java {
+    toolchain {
+        // IDEA 2026.3 ships Java 25 bytecode; compile with JDK 25, emit Java 21 bytecode.
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
 dependencies {
     intellijPlatform {
-        create("IC", "2025.1.4.1")
+        create("IU", "2026.3") {
+            useInstaller = false
+        }
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
-        bundledPlugin("com.intellij.tasks")
+        // Task API (Task, TaskManager, TaskRepository) lives in the bundled "Tasks and Contexts" plugin.
+        bundledPlugin("com.intellij.platform.tasks")
+        // Task server connectors, unbundled since 262; resolved from the Marketplace.
+        compatiblePlugin("com.intellij.tasks")
         bundledPlugin("Git4Idea")
         bundledPlugin("org.jetbrains.plugins.github")
     }
@@ -33,19 +45,6 @@ dependencies {
 intellijPlatform {
     pluginVerification {
         ides {
-            // 2026.1.3 and 2026.2 have no standalone installers yet, only intellij-repository
-            // archives, so useInstaller = false makes the verifier download the ZIP distribution.
-            create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2025.1.4.1")
-            create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2026.1.3") {
-                useInstaller.set(false)
-            }
-            // 262 unbundled com.intellij.tasks and only republishes it for the commercial IDEs
-            // (IDEA Ultimate, etc.), not free Community. com.intellij.tasks is a mandatory
-            // dependency, so on 2026.2 the plugin targets Ultimate — verify there, where the
-            // dependency resolves from the Marketplace. (Community-without-tasks is a separate task.)
-            create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaUltimate, "2026.2") {
-                useInstaller.set(false)
-            }
             create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaUltimate, "2026.3") {
                 useInstaller.set(false)
             }
@@ -58,14 +57,16 @@ intellijPlatform {
 
     pluginConfiguration {
         ideaVersion {
-            sinceBuild = "251"
+            sinceBuild = "263"
             untilBuild = "263.*"
         }
         changeNotes = """
             <h3>0.1.7</h3>
             <ul>
-              <li>No longer uses internal GitHub plugin API to read the GitHub token for PR
-                  status badges.</li>
+              <li>Requires IntelliJ IDEA 2026.3 or later. Earlier IDE versions stay on 0.1.6.</li>
+              <li>PR status badges now authenticate through the IDE's GitHub account using public
+                  GitHub plugin API only. If the account has no token, badges are skipped silently
+                  instead of opening a login dialog.</li>
             </ul>
 
             <h3>0.1.6</h3>
@@ -191,8 +192,7 @@ intellijPlatform {
 
 tasks {
     withType<JavaCompile> {
-        sourceCompatibility = "21"
-        targetCompatibility = "21"
+        options.release.set(21)
     }
 }
 

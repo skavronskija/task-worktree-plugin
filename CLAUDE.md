@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & run
 
-Gradle wrapper drives everything. Toolchain: Java 21, Kotlin 2.1.0, IntelliJ Platform Gradle Plugin 2.7.1, target IDE `IC 2025.1.4.1` (`sinceBuild = 251`).
+Gradle wrapper drives everything. Toolchain: Java 21, Kotlin 2.1.0, IntelliJ Platform Gradle Plugin 2.7.1, target IDE `IU 2026.3` (`sinceBuild = 263`, Tasks resolved from the Marketplace via `compatiblePlugin`); compiled with a JDK 25 toolchain (auto-provisioned via foojay) emitting Java 21 bytecode.
 
 - `./gradlew build` — compile and assemble.
 - `./gradlew runIde` — launch a sandbox IntelliJ with the plugin installed (slow first run; downloads the IC distribution into `.intellijPlatform/`).

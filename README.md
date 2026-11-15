@@ -8,7 +8,7 @@ IntelliJ plugin that creates git worktrees from IntelliJ tasks — or any branch
 
 **From disk** — download `task-worktree-plugin-<version>.zip` from the [releases](https://github.com/skavronskija/task-worktree-plugin/releases) or build it yourself, then **Settings | Plugins | ⚙ | Install Plugin from Disk…**.
 
-Compatible with IntelliJ IDEA 2025.1+ (`sinceBuild = 251`). Requires the bundled Tasks and Git4Idea plugins (enabled by default).
+Requires IntelliJ IDEA 2026.3 or later (`sinceBuild = 263`). Requires the Tasks and Git4Idea plugins (Tasks installs from the Marketplace alongside this plugin).
 
 ## Use
 
@@ -38,7 +38,7 @@ When you remove a worktree from the picker, its entry is also removed from Intel
 
 ## Build from source
 
-Toolchain: Java 21, Kotlin 2.1.0, IntelliJ Platform Gradle Plugin 2.7.1, target IC 2025.1.4.1.
+Toolchain: JDK 25 (auto-provisioned) emitting Java 21 bytecode, Kotlin 2.1.0, IntelliJ Platform Gradle Plugin 2.7.1, target IU 2026.3.
 
 ```bash
 ./gradlew buildPlugin       # → build/distributions/task-worktree-plugin-<version>.zip

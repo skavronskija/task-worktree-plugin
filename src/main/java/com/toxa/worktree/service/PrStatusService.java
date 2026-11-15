@@ -1,8 +1,6 @@
 package com.toxa.worktree.service;
 
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.progress.CoroutinesKt;
 import com.intellij.openapi.progress.EmptyProgressIndicator;
 import com.intellij.openapi.project.Project;
 import git4idea.remote.hosting.GitHostingUrlUtil;
@@ -24,7 +22,6 @@ import org.jetbrains.plugins.github.api.data.graphql.query.GHGQLSearchQueryRespo
 import org.jetbrains.plugins.github.api.data.pullrequest.GHPullRequestShort;
 import org.jetbrains.plugins.github.api.data.pullrequest.GHPullRequestState;
 import org.jetbrains.plugins.github.authentication.GHAccountsUtil;
-import org.jetbrains.plugins.github.authentication.accounts.GHAccountManager;
 import org.jetbrains.plugins.github.authentication.accounts.GithubAccount;
 import org.jetbrains.plugins.github.util.GHGitRepositoryMapping;
 import org.jetbrains.plugins.github.util.GHHostedRepositoriesManager;
@@ -95,7 +92,7 @@ public final class PrStatusService {
         }
         GithubServerPath server = coordinates.getServerPath();
         if (!executorByServer.containsKey(server)) {
-          executorByServer.put(server, createExecutor(project, server));
+          executorByServer.put(server, createExecutor(server));
         }
         GithubApiRequestExecutor executor = executorByServer.get(server);
         if (executor == null) {
@@ -137,14 +134,9 @@ public final class PrStatusService {
   }
 
   @Nullable
-  private static GithubApiRequestExecutor createExecutor(@NotNull Project project,
-                                                         @NotNull GithubServerPath server) {
-    String token = findToken(project, server);
-    if (token == null || token.isBlank()) {
-      LOG.info("PR status lookup skipped for " + server + ": no GitHub token available");
-      return null;
-    }
-    return GithubApiRequestExecutor.Factory.getInstance().create(server, token);
+  private static GithubApiRequestExecutor createExecutor(@NotNull GithubServerPath server) {
+    GithubAccount account = findAccount(server);
+    return account == null ? null : GithubApiRequestExecutor.Factory.getInstance().create(account);
   }
 
   private static GHRepositoryCoordinates findCoordinates(@NotNull Project project,
@@ -166,19 +158,17 @@ public final class PrStatusService {
     return fallback == null ? null : fallback.getRepository();
   }
 
-  private static String findToken(@NotNull Project project, @NotNull GithubServerPath server) {
+  @Nullable
+  private static GithubAccount findAccount(@NotNull GithubServerPath server) {
     Set<GithubAccount> accounts = GHAccountsUtil.getAccounts();
     if (accounts.isEmpty()) {
       LOG.info("PR status lookup skipped: no GitHub accounts configured in this IDE");
       return null;
     }
-    GithubAccount account = accounts.stream()
+    return accounts.stream()
         .filter(candidate -> server.equals(candidate.getServer()))
         .findFirst()
         .orElseGet(() -> accounts.iterator().next());
-    GHAccountManager accountManager = ApplicationManager.getApplication().getService(GHAccountManager.class);
-    return CoroutinesKt.runBlockingMaybeCancellable(
-        (scope, continuation) -> accountManager.findCredentials(account, continuation));
   }
 
   private static PrStatus lookupBranch(@NotNull GithubApiRequestExecutor executor,
